@@ -2,10 +2,13 @@
 当前游戏信息:
 {game_info}
 
+当前你的信息
+{self_info}
+
 玩家信息:
 {player_info}
 
-对局行为历史：
+当前对局行为历史：
 {action_history}
 
 你对其他玩家此前的评估

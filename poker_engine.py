@@ -6,7 +6,7 @@ import json
 import os
 from typing import List, Dict, Any, Tuple, Optional
 from enum import Enum
-from game_info import GameAction,GameInfoState
+from game_info import GameAction,GameResult,GameWinnerInfo
 
 
 class Suit(Enum):
@@ -66,8 +66,7 @@ class HandRank(Enum):
 
 class Player:
     """玩家类"""
-    def __init__(self, player_id: str, name: str, chips: int = 1000):
-        self.id = player_id
+    def __init__(self, name: str, chips: int = 1000):
         self.name = name
         self.chips = chips
         self.hand: List[Card] = []
@@ -103,7 +102,6 @@ class Player:
     def to_dict(self) -> Dict[str, Any]:
         """将玩家信息转换为字典，用于记录和显示"""
         return {
-            "id": self.id,
             "name": self.name,
             "chips": self.chips,
             "hand": [str(card) for card in self.hand],
@@ -132,6 +130,7 @@ class PokerTable:
         self.hand_number = 0  # 当前是第几手牌
         self.action_history: List[GameAction] = []  # 行动历史
         self.game_log: List[Dict[str, Any]] = []  # 游戏日志
+        self.game_result_log:Dict[int,GameResult] = {}
     
     def add_player(self, player: Player) -> bool:
         """添加玩家到牌桌"""
@@ -140,10 +139,10 @@ class PokerTable:
         self.players.append(player)
         return True
     
-    def remove_player(self, player_id: str) -> bool:
+    def remove_player(self, player_name: str) -> bool:
         """从牌桌移除玩家"""
         for i, player in enumerate(self.players):
-            if player.id == player_id:
+            if player.name == player_name:
                 self.players.pop(i)
                 return True
         return False
@@ -261,7 +260,6 @@ class PokerTable:
         gameAction = GameAction(
             hand_number=self.hand_number,
             stage= self.stage,
-            player_id= player.id,
             player_name= player.name,
             action= action,
             amount= amount,
@@ -529,14 +527,14 @@ class PokerTable:
         # 评估每个玩家的牌型
         player_hands = {}
         for player in active_players:
-            player_hands[player.id] = self.evaluate_hand(player)
+            player_hands[player.name] = self.evaluate_hand(player)
         
         # 找出最佳牌型的玩家
         best_players = []
         best_hand = None
         
         for player in active_players:
-            hand = player_hands[player.id]
+            hand = player_hands[player.name]
             if not best_hand or self.compare_hands(hand, best_hand) > 0:
                 best_hand = hand
                 best_players = [player]
@@ -552,10 +550,9 @@ class PokerTable:
         
         for player in active_players:
             player_record = {
-                "player_id": player.id,
                 "player_name": player.name,
                 "hand": [str(card) for card in player.hand],
-                "hand_rank": player_hands[player.id][0].name,
+                "hand_rank": player_hands[player.name][0].name,
                 "is_winner": player in best_players
             }
             showdown_record["players"].append(player_record)
@@ -586,7 +583,6 @@ class PokerTable:
             "hand_number": self.hand_number,
             "pot": self.pot,
             "winners": [{
-                "player_id": player.id,
                 "player_name": player.name,
                 "amount": award_per_player + (remainder if player == winners[0] else 0)
             } for player in winners]
@@ -594,6 +590,17 @@ class PokerTable:
         
         self.game_log.append(pot_award_record)
         self.pot = 0
+        self.game_result_log[self.hand_number] = GameResult(
+            hand_number=self.hand_number,
+            pot= self.pot,
+            community_cards= self.community_cards,
+            winners = [GameWinnerInfo(
+                player_name=player.name,
+                amount=award_per_player + (remainder if player == winners[0] else 0),
+                hand= player.hand
+            )for player in winners]
+        )
+    
     
     def start_new_hand(self):
         """开始新的一手牌"""
@@ -630,111 +637,6 @@ class PokerTable:
         }
         self.game_log.append(hand_start_record)
     
-    def play_hand(self):
-        """进行一手牌的游戏"""
-        # 开始新的一手牌
-        self.start_new_hand()
-        
-        # 进行翻牌前的下注
-        self.play_betting_round()
-        
-        # 如果只剩一个玩家，直接结束
-        active_players = [p for p in self.players if p.is_active and not p.folded]
-        if len(active_players) <= 1:
-            self.award_pot(active_players)
-            return
-        
-        # 进行翻牌
-        self.move_to_next_stage()  # 进入翻牌阶段
-        self.play_betting_round()
-        
-        # 如果只剩一个玩家，直接结束
-        active_players = [p for p in self.players if p.is_active and not p.folded]
-        if len(active_players) <= 1:
-            self.award_pot(active_players)
-            return
-        
-        # 进行转牌
-        self.move_to_next_stage()  # 进入转牌阶段
-        self.play_betting_round()
-        
-        # 如果只剩一个玩家，直接结束
-        active_players = [p for p in self.players if p.is_active and not p.folded]
-        if len(active_players) <= 1:
-            self.award_pot(active_players)
-            return
-        
-        # 进行河牌
-        self.move_to_next_stage()  # 进入河牌阶段
-        self.play_betting_round()
-        
-        # 进行摊牌
-        self.move_to_next_stage()  # 进入摊牌阶段
-    
-    def play_betting_round(self):
-        """进行一轮下注"""
-        # 如果只有一个或没有玩家，直接结束
-        active_players = [p for p in self.players if p.is_active and not p.folded and not p.all_in]
-        if len(active_players) <= 1:
-            return
-        
-        # 记录当前阶段开始
-        stage_start_record = {
-            "hand_number": self.hand_number,
-            "stage": self.stage.value,
-            "community_cards": [str(card) for card in self.community_cards]
-        }
-        self.game_log.append(stage_start_record)
-        
-        # 玩家轮流行动，直到回合结束
-        first_action = True
-        while not self.is_round_complete():
-            # 获取下一个行动的玩家
-            if first_action and self.stage != GameStage.PREFLOP:
-                # 翻牌后从庄家后第一个玩家开始
-                self.current_player_idx = (self.dealer_position + 1) % len(self.players)
-                first_action = False
-            
-            current_player = self.next_player()
-            if not current_player:
-                break  # 没有可行动的玩家，结束回合
-            
-            # 这里应该由AI决策引擎决定行动，暂时用随机行动代替
-            action, amount = self.get_player_action(current_player)
-            
-            # 处理玩家行动
-            self.process_action(current_player, action, amount)
-    
-    def get_player_action(self, player: Player) -> Tuple[Action, int]:
-        """获取玩家行动，这里应该由AI决策引擎实现"""
-        # 临时使用随机行动，实际应该由AI决策引擎实现
-        available_actions = []
-        
-        # 检查可用行动
-        if self.current_bet == 0 or self.current_bet == player.bet_in_round:
-            available_actions.append(Action.CHECK)
-        
-        if self.current_bet > player.bet_in_round:
-            available_actions.append(Action.CALL)
-        
-        available_actions.append(Action.FOLD)
-        available_actions.append(Action.RAISE)
-        available_actions.append(Action.ALL_IN)
-        
-        # 随机选择一个行动
-        action = random.choice(available_actions)
-        
-        # 根据行动确定金额
-        amount = 0
-        if action == Action.CALL:
-            amount = self.current_bet - player.bet_in_round
-        elif action == Action.RAISE:
-            min_raise = self.current_bet * 2
-            amount = min(min_raise, player.chips)
-        elif action == Action.ALL_IN:
-            amount = player.chips
-        
-        return action, amount
     
     def save_game_log(self, filename: str):
         """保存游戏日志到文件"""

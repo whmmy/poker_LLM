@@ -7,7 +7,7 @@ import uuid
 from typing import List, Dict, Any, Optional
 from poker_engine import PokerTable, Player, GameStage, Action
 from ai_player import AIPlayer, LLMPlayer
-from game_info import GameStage
+from game_info import GameInfoState
 
 
 class GameController:
@@ -27,17 +27,16 @@ class GameController:
         """添加AI玩家到游戏"""
         if len(self.ai_players) >= self.table.max_players:
             return False
-        
         self.ai_players.append(ai_player)
         return self.table.add_player(ai_player.player)
     
     
-    def prepare_game_state(self, current_player: Player) -> Dict[str, Any]:
+    def prepare_game_state(self, current_player: Player) -> GameInfoState:
         """准备当前游戏状态信息，用于AI决策"""
         # 找出当前玩家在牌桌中的位置
         position = -1
         for i, player in enumerate(self.table.players):
-            if player.id == current_player.id:
+            if player.name == current_player.name:
                 position = i
                 break
         
@@ -46,16 +45,15 @@ class GameController:
         for player in self.table.players:
             # 对于其他玩家，不显示手牌
             player_info = player.to_dict()
-            if player.id != current_player.id:
+            if player.name != current_player.name:
                 player_info["hand"] = ["??", "??"]
             players_info.append(player_info)
         
-        # 准备最近的行动历史
-        recent_actions = self.table.action_history[-20:] if len(self.table.action_history) > 20 else self.table.action_history
-        
+        # 获取当前对局的行动历史
+        recent_actions = [action for action in self.table.action_history if action.hand_number == self.table.hand_number]
         # 计算最小加注额
         min_raise = max(self.table.big_blind, self.table.current_bet * 2)
-        gameState = GameStage(
+        game_state = GameInfoState(
             hand= current_player.hand,
             community_cards= self.table.community_cards,
             pot=self.table.pot,
@@ -65,21 +63,11 @@ class GameController:
             players_info= players_info,
             position= position,
             dealer_position= self.table.dealer_position,
-            action_history= recent_actions
+            action_history= recent_actions,
+            small_blind=self.table.small_blind,
+            big_blind=self.table.big_blind,
+            hand_num=self.table.hand_number
         )
-        # 构建游戏状态
-        game_state = {
-            "hand": current_player.hand,
-            "community_cards": self.table.community_cards,
-            "pot": self.table.pot,
-            "current_bet": self.table.current_bet,
-            "min_raise": min_raise,
-            "stage": self.table.stage,
-            "players_info": players_info,
-            "position": position,
-            "dealer_position": self.table.dealer_position,
-            "action_history": recent_actions
-        }
         
         return game_state
     
@@ -115,6 +103,7 @@ class GameController:
         if len(active_players) <= 1:
             self.table.award_pot(active_players)
             return
+            
         
         # 进行转牌
         self.table.move_to_next_stage()  # 进入转牌阶段
@@ -127,6 +116,7 @@ class GameController:
         if len(active_players) <= 1:
             self.table.award_pot(active_players)
             return
+            
         
         # 进行河牌
         self.table.move_to_next_stage()  # 进入河牌阶段
@@ -142,8 +132,9 @@ class GameController:
             active_players = [p for p in self.table.players if p.is_active and not p.folded]
             print("\n摊牌:")
             for player in active_players:
-                print(f"  {player.name}: {', '.join(str(card) for card in player.hand)}")
+                print(f"  {player.name}: {', '.join(str(card) for card in player.hand)}\n")
             print(f"公共牌: {', '.join(str(card) for card in self.table.community_cards)}")
+        
     
     def run_betting_round(self, verbose: bool = True):
         """运行一轮下注"""
@@ -170,7 +161,7 @@ class GameController:
                 break  # 没有可行动的玩家，结束回合
             
             # 找到对应的AI玩家
-            ai_player = next((ai for ai in self.ai_players if ai.player.id == current_player.id), None)
+            ai_player = next((ai for ai in self.ai_players if ai.player.name == current_player.name), None)
             if not ai_player:
                 continue  # 找不到对应的AI玩家，跳过
             
@@ -178,23 +169,19 @@ class GameController:
             game_state = self.prepare_game_state(current_player)
             
             # 获取AI决策
-            action, amount = ai_player.make_decision(game_state)
-            
-            # 获取行为表现（仅对LLMPlayer有效）
-            behavior = ""
-            if isinstance(ai_player, LLMPlayer):
-                behavior = ai_player.last_behavior
-            
+            playerAction = ai_player.make_decision(game_state)
+                        
             # 处理玩家行动
-            success = self.table.process_action(current_player, action, amount, behavior)
+            success = self.table.process_action(current_player, playerAction.action, playerAction.amount, playerAction.behavior)
             
             if verbose:
-                action_str = f"{current_player.name} 执行 {action.value}"
-                if action in [Action.CALL, Action.RAISE, Action.ALL_IN]:
-                    action_str += f" {amount}"
+                action_str = f"{current_player.name} 选择 {playerAction.action.value}"
+                if playerAction.action in [Action.CALL, Action.RAISE, Action.ALL_IN]:
+                    action_str += f" {playerAction.amount}"
                 print(f"  {action_str}")
-                if behavior:
-                    print(f"  {behavior}")
+                if playerAction.behavior:
+                    print(f" 他的表现: {playerAction.behavior}")
+                print(f'理由是：{playerAction.play_reason}')
                 print(f"  底池: {self.table.pot}")
     
     def run_tournament(self, num_hands: int = 100, verbose: bool = True):
@@ -203,6 +190,9 @@ class GameController:
             print("至少需要2名玩家才能开始游戏")
             return
         
+        #为玩家设置相同的初始筹码
+        for p in self.ai_players:
+            p.player.chips = self.initial_chips
         start_time = time.time()
         
         if verbose:
@@ -227,6 +217,8 @@ class GameController:
             # 运行一手牌
             self.run_hand(verbose)
             
+            # 按照上一局的运行结果各个active_players进行反思
+            self.handle_reflection()
             # 每10手牌保存一次日志
             if i % 10 == 0:
                 self.save_game_log()
@@ -269,3 +261,8 @@ class GameController:
         
         # 重放游戏
         self.table.replay_game()
+
+    def handle_reflection(self):
+        game_result = self.table.game_result_log[self.table.hand_number]
+        for p in self.ai_players:
+            p.reflect_on_game(self.prepare_game_state(p.player),game_result)

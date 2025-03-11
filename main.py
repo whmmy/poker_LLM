@@ -4,8 +4,9 @@
 import argparse
 import os
 from typing import Optional,List
-from ai_player import AIPlayer
+from ai_player import AIPlayer,LLMPlayer
 from game_controller import GameController
+from poker_engine import Player
 
 def list_games():
     """列出所有已保存的游戏"""
@@ -52,5 +53,7 @@ def start_game(players:List[AIPlayer], hands, chips, small_blind, big_blind):
     
 
 if __name__ == "__main__":
+    players = []
+    
     # start_game
     pass
