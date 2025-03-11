@@ -3,7 +3,7 @@
 
 import random
 from typing import List, Dict, Any, Tuple, Optional
-from poker_engine import Player, Action, Card, GameStage
+from engine_info import Card,Action,GameStage,Player
 from openai import OpenAI
 from game_info import GameAction, GameInfoState,GamePlayerAction, GameResult
 import re
@@ -44,8 +44,8 @@ class AIPlayer:
 
 class LLMPlayer(AIPlayer):
     """由大语言模型驱动的AI玩家"""
-    def __init__(self, player: Player, model_name: str, api_key: Optional[str] = None,base_url: Optional[str] = None):
-        super().__init__(player)
+    def __init__(self, name: str, model_name: str, api_key: Optional[str] = None,base_url: Optional[str] = None):
+        super().__init__(Player(name=name))
         self.model_name = model_name
         self.api_key = api_key
         self.base_url = base_url
@@ -226,10 +226,10 @@ class LLMPlayer(AIPlayer):
     def get_all_player_info(self,game_state:GameInfoState) -> str:
         prompt = ''
         for i, player_info in enumerate(game_state.players_info):
-            is_self = player_info.name == self.player.name
+            is_self = player_info['name'] == self.player.name
             position_str = "(你)" if is_self else ""
             dealer_str = "(庄家)" if i == game_state.dealer_position else ""
-            prompt += f"- 玩家{position_str}{dealer_str}: {player_info.name},位置：{i}, 剩余筹码: {player_info.chips}, 已下注: {player_info.bet_in_round}, {'已弃牌' if player_info.folded else '未弃牌'}, {'已全押' if player_info.all_in else '未全押'}\n"
+            prompt += f"- 玩家{position_str}{dealer_str}: {player_info['name']},位置：{i}, 剩余筹码: {player_info['chips']}, 已下注: {player_info['bet_in_round']}, {'已弃牌' if player_info['folded'] else '未弃牌'}, {'已全押' if player_info['all_in'] else '未全押'}\n"
         return prompt
 
     def get_action_history(self,action_history:List[GameAction]) -> str:
@@ -245,8 +245,8 @@ class LLMPlayer(AIPlayer):
     def get_player_performance(self,players_info:List[Player]) -> str:
         prompt = ''
         for player in players_info:
-            previous_opinion = self.opinions.get(player.name, "还不了解这个玩家")
-            prompt += f'玩家 {player.name}:{previous_opinion}\n'
+            previous_opinion = self.opinions.get(player['name'], "还不了解这个玩家")
+            prompt += f'玩家 {player["name"]}:{previous_opinion}\n'
 
         return prompt       
 

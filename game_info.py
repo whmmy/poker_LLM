@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from poker_engine import Player, Card, GameStage,Action
+from engine_info import Card,Action,GameStage,Player
 from typing import List, Dict, Optional
 
 import prompts
@@ -29,10 +29,10 @@ class GameInfoState:
     current_bet: int = 0
     min_raise: int = 0
     stage: GameStage = GameStage.PREFLOP
-    players_info: List[Player] = []
+    players_info: List[Player] = field(default_factory=list)
     position: Optional[int] = 0
     dealer_position: Optional[int] = 0
-    action_history:List[GameAction] = []
+    action_history:List[GameAction] = field(default_factory=list)
     small_blind:int=0
     big_blind:int=0
     hand_num:int=0
@@ -69,14 +69,14 @@ class GamePlayerAction:
 class GameWinnerInfo:
     player_name: str =''
     amount:int = 0
-    hand:List[Card] = []
+    hand:List[Card] = field(default_factory=list)
 
 @dataclass
 class GameResult:
     hand_number:int = 0
     pot:int = 0
-    community_cards:List[Card] = []
-    winners:List[GameWinnerInfo] = []
+    community_cards:List[Card] = field(default_factory=list)
+    winners:List[GameWinnerInfo] = field(default_factory=list)
 
     def get_result_info(self):
         prompt = f"""
