@@ -1,5 +1,7 @@
 # Poker LLM
 
+中文 | [English](README_EN.md)
+
 一个由大语言模型驱动的AI版德州扑克对战框架
 
 ## 项目介绍
