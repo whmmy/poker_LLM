@@ -54,6 +54,5 @@ def start_game(players:List[AIPlayer], hands, chips, small_blind, big_blind):
 
 if __name__ == "__main__":
     players = []
-    
     # start_game
     pass
