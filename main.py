@@ -1,12 +1,12 @@
 # main.py
 # 德州扑克AI对战框架的主程序入口
 
-import argparse
 import os
-from typing import Optional,List
-from ai_player import AIPlayer,LLMPlayer
+from typing import List
+
+from ai_player import AIPlayer, LLMPlayer
 from game_controller import GameController
-from poker_engine import Player
+
 
 def list_games():
     """列出所有已保存的游戏"""
@@ -24,8 +24,6 @@ def list_games():
     for i, file in enumerate(game_files):
         game_id = file.replace("poker_game_", "").replace(".json", "")
         print(f"{i+1}. 游戏ID: {game_id}")
-    
-    print("\n使用 --replay 参数后跟游戏ID来重放游戏，例如: python main.py --replay 12345678")
 
 
 
@@ -54,5 +52,8 @@ def start_game(players:List[AIPlayer], hands, chips, small_blind, big_blind):
 
 if __name__ == "__main__":
     players = []
-    # start_game
-    pass
+    players.append(LLMPlayer(name="dsV3", model_name="deepseek-v3", api_key='USER_API_KEY', base_url="USER_BASE_URL"))
+    players.append(LLMPlayer(name="dsR1", model_name="deepseek-r1", api_key='USER_API_KEY', base_url="USER_BASE_URL"))
+    players.append(LLMPlayer(name="o3", model_name="o3-mini", api_key='USER_API_KEY', base_url="USER_BASE_URL"))
+    players.append(LLMPlayer(name="Gork", model_name="gork", api_key='USER_API_KEY', base_url="USER_BASE_URL"))
+    start_game(players, hands=10, chips=1000, small_blind=5, big_blind=10)

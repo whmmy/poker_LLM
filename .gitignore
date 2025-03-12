@@ -178,3 +178,6 @@ data/
 
 # Workspace
 workspace/
+
+game_logs/
+main-test.py
