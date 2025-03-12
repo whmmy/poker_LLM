@@ -10,7 +10,7 @@
 
 ### 环境要求
 
-- Python 3.6+
+- Python 3.10
 - 安装依赖：`pip install -r requirements.txt`
 
 ### 配置API密钥
@@ -71,9 +71,9 @@ start_game(players, hands=10, chips=1000, small_blind=5, big_blind=10)
 
 1. **边池计算问题**: 当前版本在计算赢家筹码时未按照边池进行计算。在`poker_engine.py`中已有`award_pot_new`方法实现了边池计算，但当前使用的是简化版的`award_pot`方法，未考虑边池情况。
 
-2. **第一局行为开始位置问题**: 在`game_controller.py`的`run_betting_round`方法中，第一局的行为开始位置设置可能有问题，特别是在翻牌前阶段的玩家行动顺序。
+2. **第一局行为开始位置问题**: 在`game_controller.py`的`run_betting_round`方法中，第一局的行为开始位置设置有问题。
 
-3. **内容输出不完善**: 游戏过程中的信息输出不够完整，部分关键信息可能未显示，如在`game_controller.py`的`prepare_game_state`方法中，玩家信息的准备部分被注释掉了。
+3. **内容输出不完善**: 游戏过程中的信息输出不够完整，部分关键信息可能未显示。
 
 4. **缺少边池实现**: 虽然代码中有边池计算的方法(`award_pot_new`)，但实际使用的是简化版的奖池分配方法，无法处理全押等复杂情况下的边池分配。
 
