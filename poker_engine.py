@@ -196,6 +196,19 @@ class PokerTable:
         )
         self.action_history.append(gameAction)
 
+        # 添加玩家行动到游戏日志
+        action_record = {
+            "hand_number": self.hand_number,
+            "stage": self.stage.value,
+            "player_name": player.name,
+            "action": action.value,
+            "amount": amount,
+            "pot": self.pot,
+            "player_chips": player.chips,
+            "behavior": behavior
+        }
+        self.game_log.append(action_record)
+
     def is_round_complete(self) -> bool:
         """检查当前回合是否结束"""
         active_players = [p for p in self.players if p.is_active and not p.folded]
@@ -241,12 +254,30 @@ class PokerTable:
         if self.stage == GameStage.PREFLOP:
             self.stage = GameStage.FLOP
             self.deal_community_cards(3)  # 发放3张翻牌
+            # 记录翻牌阶段
+            self.game_log.append({
+                "type": 2,
+                "stage": self.stage.value,
+                "community_cards": [str(card) for card in self.community_cards]
+            })
         elif self.stage == GameStage.FLOP:
             self.stage = GameStage.TURN
             self.deal_community_cards(1)  # 发放1张转牌
+            # 记录转牌阶段
+            self.game_log.append({
+                "type": 2,
+                "stage": self.stage.value,
+                "community_cards": [str(card) for card in self.community_cards]
+            })
         elif self.stage == GameStage.TURN:
             self.stage = GameStage.RIVER
             self.deal_community_cards(1)  # 发放1张河牌
+            # 记录河牌阶段
+            self.game_log.append({
+                "type": 2,
+                "stage": self.stage.value,
+                "community_cards": [str(card) for card in self.community_cards]
+            })
         elif self.stage == GameStage.RIVER:
             self.stage = GameStage.SHOWDOWN
             self.showdown()  # 进行摊牌
@@ -489,6 +520,7 @@ class PokerTable:
 
         # 记录摊牌结果
         showdown_record = {
+            "type": 4,
             "hand_number": self.hand_number,
             "community_cards": [str(card) for card in self.community_cards],
             "players": []
@@ -552,6 +584,7 @@ class PokerTable:
 
         # 记录奖池分配
         pot_award_record = {
+            "type": 5,
             "hand_number": self.hand_number,
             "pot": self.pot,
             "winners": [{
@@ -592,6 +625,7 @@ class PokerTable:
 
         # 记录奖池分配
         pot_award_record = {
+            "type": 5,
             "hand_number": self.hand_number,
             "pot": self.pot,
             "winners": [{
@@ -647,6 +681,7 @@ class PokerTable:
 
         # 记录新一手牌开始
         hand_start_record = {
+            "type": 1,
             "hand_number": self.hand_number,
             "dealer": self.dealer_position,
             "small_blind": self.small_blind,
@@ -678,44 +713,43 @@ class PokerTable:
 
         print("开始重放游戏...")
         for record in self.game_log:
-            if "stage" in record:
-                # 阶段记录
-                print(f"\n阶段: {record['stage']}")
-                if "community_cards" in record:
-                    print(f"公共牌: {', '.join(record['community_cards'])}")
+            # 根据事件类型处理不同的记录
+            event_type = record.get('type', 0)
 
-            elif "action" in record:
-                # 行动记录
-                print(f"玩家 {record['player_name']} 执行 {record['action']}")
+            if event_type == 1:
+                # 对局开局信息
+                print(f"\n=== 新一手牌 #{record['hand_number']} ===")
+                print(f"庄家位置: {record['dealer']}")
+                print(f"盲注: 小盲 {record['small_blind']}, 大盲 {record['big_blind']}")
+                print("玩家筹码:")
+                for player in record["players"]:
+                    print(f"  {player['name']}: {player['chips']} 筹码")
+
+            elif event_type == 2:
+                # 系统发牌信息
+                print(f"\n=== {record['stage']} 阶段 ===")
+                print(f"公共牌: {', '.join(record['community_cards'])}")
+
+            elif event_type == 3:
+                # 玩家行动信息
+                action_str = f"玩家 {record['player_name']} 选择 {record['action']}"
                 if record['amount'] > 0:
-                    print(f"金额: {record['amount']}")
+                    action_str += f", 金额: {record['amount']}"
+                print(action_str)
+                if record['behavior']:
+                    print(f"表现: {record['behavior']}")
                 print(f"底池: {record['pot']}")
+                print(f"剩余筹码: {record['player_chips']}")
 
-            elif "players" in record and "community_cards" in record:
-                # 摊牌记录
-                print("\n摊牌:")
+            elif event_type == 4:
+                # 摊牌信息
+                print("\n=== 摊牌阶段 ===")
                 print(f"公共牌: {', '.join(record['community_cards'])}")
                 for player in record["players"]:
                     winner_mark = "(赢家)" if player.get("is_winner", False) else ""
-                    print(f"玩家 {player['player_name']} {winner_mark}")
+                    print(f"\n玩家 {player['player_name']} {winner_mark}")
                     print(f"手牌: {', '.join(player['hand'])}")
                     print(f"牌型: {player['hand_rank']}")
-
-            elif "winners" in record:
-                # 奖池分配记录
-                print("\n奖池分配:")
-                print(f"底池: {record['pot']}")
-                for winner in record["winners"]:
-                    print(f"玩家 {winner['player_name']} 获得 {winner['amount']} 筹码")
-
-            elif "dealer" in record:
-                # 新一手牌开始记录
-                print(f"\n新一手牌 #{record['hand_number']}")
-                print(f"庄家位置: {record['dealer']}")
-                print(f"小盲: {record['small_blind']}, 大盲: {record['big_blind']}")
-                print("玩家筹码:")
-                for player in record["players"]:
-                    print(f"玩家 {player['name']}: {player['chips']} 筹码")
 
             # 暂停一下，便于观察
             input("按Enter键继续...")
