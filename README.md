@@ -12,8 +12,8 @@
 
 ### 环境要求
 
-- Python 3.10
-- 安装依赖：`pip install -r requirements.txt`
+- Python 3.10+
+- 安装依赖：`pip install -r requirements.txt`（主要依赖openai库）
 
 ### 配置API密钥
 
@@ -29,6 +29,15 @@ players.append(LLMPlayer(name="玩家名称", model_name="模型名称", api_key
 
 ```bash
 python main.py
+```
+
+### 游戏回放
+
+可以使用以下命令查看已保存的游戏列表：
+直接使用replay_game.py：
+
+```bash
+python replay_game.py
 ```
 
 可以通过修改`main.py`中的参数来调整游戏设置：
@@ -53,6 +62,8 @@ start_game(players, hands=10, chips=1000, small_blind=5, big_blind=10)
 - `prompt/`: 提示词目录
   - `decision_prompt.txt`: 用于AI决策的提示词模板
   - `reflect_prompt.txt`: 用于AI反思的提示词模板
+  - `reflect_all_prompt.txt`: 用于AI对所有玩家进行反思的提示词模板
+- `replay_game.py`: 游戏回放工具
 - `prompts.py`: 提示词管理
 - `requirements.txt`: 项目依赖
 

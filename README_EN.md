@@ -12,8 +12,8 @@ This project is a Texas Hold'em Poker AI battle framework that uses Large Langua
 
 ### Requirements
 
-- Python 3.10
-- Install dependencies: `pip install -r requirements.txt`
+- Python 3.10+
+- Install dependencies: `pip install -r requirements.txt` (mainly depends on the openai library)
 
 ### Configure API Keys
 
@@ -29,6 +29,26 @@ Simply run the `main.py` file to start the game:
 
 ```bash
 python main.py
+```
+
+### Game Replay
+
+You can use the following command to view the list of saved games:
+
+```bash
+python main.py --list
+```
+
+Use the following command to replay a game with a specific ID:
+
+```bash
+python main.py --replay GAME_ID
+```
+
+Or directly use replay_game.py:
+
+```bash
+python replay_game.py
 ```
 
 You can adjust the game settings by modifying the parameters in `main.py`:
@@ -53,6 +73,8 @@ start_game(players, hands=10, chips=1000, small_blind=5, big_blind=10)
 - `prompt/`: Prompt directory
   - `decision_prompt.txt`: Prompt template for AI decision-making
   - `reflect_prompt.txt`: Prompt template for AI reflection
+  - `reflect_all_prompt.txt`: Prompt template for AI to reflect on all players
+- `replay_game.py`: Game replay tool
 - `prompts.py`: Prompt management
 - `requirements.txt`: Project dependencies
 
