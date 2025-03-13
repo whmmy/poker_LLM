@@ -80,13 +80,24 @@ class PokerTable:
             self.community_cards.append(self.deck.pop())
 
     def post_blinds(self):
-        """下盲注"""
-        if len(self.players) < 2:
+        """下盲注，确保只有活跃玩家才能被选为大小盲"""
+        active_players = [p for p in self.players if p.is_active]
+        if len(active_players) < 2:
             return
 
-        # 确定小盲和大盲位置
-        sb_pos = (self.dealer_position + 1) % len(self.players)
-        bb_pos = (self.dealer_position + 2) % len(self.players)
+        # 从庄家位置开始，找到第一个活跃玩家作为小盲
+        sb_pos = self.dealer_position
+        while True:
+            sb_pos = (sb_pos + 1) % len(self.players)
+            if self.players[sb_pos].is_active:
+                break
+
+        # 从小盲位置开始，找到第一个活跃玩家作为大盲
+        bb_pos = sb_pos
+        while True:
+            bb_pos = (bb_pos + 1) % len(self.players)
+            if self.players[bb_pos].is_active:
+                break
 
         # 下小盲注
         sb_player = self.players[sb_pos]
@@ -101,8 +112,12 @@ class PokerTable:
         self.current_bet = self.big_blind
         self.log_action(bb_player, Action.BIG_BLIND, bb_amount, "")
 
-        # 设置当前行动玩家为大盲注后的玩家
-        self.current_player_idx = (bb_pos + 1) % len(self.players)
+        # 设置当前行动玩家为大盲注后的第一个活跃玩家
+        self.current_player_idx = bb_pos
+        while True:
+            self.current_player_idx = (self.current_player_idx + 1) % len(self.players)
+            if self.players[self.current_player_idx].is_active:
+                break
 
     def next_player(self) -> Optional[Player]:
         """获取下一个应该行动的玩家"""
@@ -602,8 +617,13 @@ class PokerTable:
 
     def start_new_hand(self):
         """开始新的一手牌"""
-        # 移动庄家位置
-        self.dealer_position = (self.dealer_position + 1) % len(self.players)
+        # 移动庄家位置到下一个活跃玩家
+        current_pos = self.dealer_position
+        while True:
+            current_pos = (current_pos + 1) % len(self.players)
+            if self.players[current_pos].is_active:
+                self.dealer_position = current_pos
+                break
         self.hand_number += 1
 
         # 重置牌桌状态
