@@ -542,7 +542,7 @@ class PokerTable:
         self.award_pot(best_players)
 
     # 完成分配奖池是添加边池的概念
-    def award_pot_new(self, winners: List[Player]):
+    def award_pot(self, winners: List[Player]):
         """将奖池分配给赢家"""
         if not winners:
             return
@@ -612,7 +612,7 @@ class PokerTable:
         self.game_log.append(pot_award_record)
         self.pot = 0
 
-    def award_pot(self, winners: List[Player]):
+    def award_pot_old(self, winners: List[Player]):
         """将奖池分配给赢家"""
         if not winners:
             return
