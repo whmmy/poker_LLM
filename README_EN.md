@@ -33,19 +33,7 @@ python main.py
 
 ### Game Replay
 
-You can use the following command to view the list of saved games:
-
-```bash
-python main.py --list
-```
-
-Use the following command to replay a game with a specific ID:
-
-```bash
-python main.py --replay GAME_ID
-```
-
-Or directly use replay_game.py:
+You can use replay_game.py directly:
 
 ```bash
 python replay_game.py
@@ -93,11 +81,9 @@ start_game(players, hands=10, chips=1000, small_blind=5, big_blind=10)
 
 ## Known Issues
 
-1. **Side Pot Calculation Issue**: The current version does not calculate winner chips according to side pots. There is an `award_pot_new` method in `poker_engine.py` that implements side pot calculation, but the simplified `award_pot` method is currently used, which does not consider side pot situations.
+1. ~~**Side Pot Calculation Issue**: The current version does not calculate winner chips according to side pots. There is an `award_pot_new` method in `poker_engine.py` that implements side pot calculation, but the simplified `award_pot` method is currently used, which does not consider side pot situations.~~
 
 2. **Incomplete Output**: The information output during the game is not comprehensive, and some key information may not be displayed.
-
-3. **Lack of Side Pot Implementation**: Although there is a method for side pot calculation (`award_pot_new`) in the code, the simplified pot distribution method is actually used, which cannot handle side pot distribution in complex situations such as all-in.
 
 ## Extended Features
 
