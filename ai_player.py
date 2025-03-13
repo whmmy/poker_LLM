@@ -10,8 +10,11 @@ import re
 
 DESISION_PROMPT_PATH = "prompt/decision_prompt.txt"
 REFLECT_PROMPT_PATH = "prompt/reflect_prompt.txt"
+REFLECT_ALL_PROMPT_PATH = "prompt/reflect_all_prompt.txt"
 RED = '\033[31m'
 RESET = '\033[0m'
+
+
 class AIPlayer:
     """AI玩家基类,定义AI玩家接口"""
 
@@ -55,10 +58,12 @@ class LLMPlayer(AIPlayer):
         self.base_url = base_url
         self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
         self.opinions = {}
+        self.all_player_previous = '对他们还不了解'
 
     def make_decision(self, game_state: GameInfoState) -> GamePlayerAction:
         print(f'玩家 {self.name} 正在思考...')
         print(f"他的手牌是：{', '.join(str(card) for card in self.player.hand)}")
+        print(f"他的筹码量：{self.player.chips}")
         for i in range(3):
             try:
                 # 构建提示信息
@@ -85,7 +90,7 @@ class LLMPlayer(AIPlayer):
         game_info = game_state.get_common_game_info()
 
         # 生成玩家当前信息
-        self_info = self.get_self_curent_round_info(game_state)
+        self_info = self.get_self_current_round_info(game_state)
 
         # 生成所有玩家信息
         player_info = self.get_all_player_info(game_state)
@@ -101,7 +106,7 @@ class LLMPlayer(AIPlayer):
             self_info=self_info,
             player_info=player_info,
             action_history=action_history,
-            player_performance=player_performance
+            player_performance=self.all_player_previous
         )
 
         return prompt
@@ -181,10 +186,8 @@ class LLMPlayer(AIPlayer):
         else:
             raise ValueError("无法从响应中提取有效数据")
 
-
     def reflect_on_game(self, game_state: GameInfoState, game_result: GameResult):
-
-        basePrompt = self._read_file(REFLECT_PROMPT_PATH)
+        print(f'玩家 {self.name} 正在反思和总结...')
         # 生成当前轮次的对局历史
         action_history = self.get_action_history(game_state.action_history)
         # 生成结果信息
@@ -192,24 +195,43 @@ class LLMPlayer(AIPlayer):
         # 生成所有玩家信息
         player_info = self.get_all_player_info(game_state)
 
-        for player in game_state.players_info:
-            if player.is_active and player.name != self.player.name:
-                try:
-                    prompt = basePrompt.format(
-                        self_name=self.player.name,
-                        user_info=player_info,
-                        action_history=action_history,
-                        game_result=result_str,
-                        player=player.name,
-                        previous_opinion=self.opinions.get(player.name, "还不了解这个玩家")
-                    )
 
-                    content = self._call_llm_api(prompt=prompt)
-                    # 更新对该玩家的印象
-                    self.opinions[player.name] = content.strip()
-                    print(f"{self.name} 更新了对 {player.name} 的印象: {content}")
-                except Exception as e:
-                    print(f"反思玩家 {player.name} 时出错: {str(e)}")
+        # 使用一次调用为所有玩家进行分析
+        basePrompt = self._read_file(REFLECT_ALL_PROMPT_PATH)
+        try:
+            prompt = basePrompt.format(
+                self_name=self.player.name,
+                user_info=player_info,
+                action_history=action_history,
+                game_result=result_str,
+                previous_opinion=self.all_player_previous
+            )
+            content = self._call_llm_api(prompt=prompt)
+            # 更新对其他玩家的印象
+            self.all_player_previous = content.strip()
+            print(f"{self.name} 更新了对其他玩家的印象: {content}")
+        except Exception as e:
+            print(f"反思自己时出错: {str(e)}")
+        # 使用多轮调用给每一位玩家进行分析
+        # basePrompt = self._read_file(REFLECT_PROMPT_PATH)
+        # for player in game_state.players_info:
+        #     if player.is_active and player.name != self.player.name:
+        #         try:
+        #             prompt = basePrompt.format(
+        #                 self_name=self.player.name,
+        #                 user_info=player_info,
+        #                 action_history=action_history,
+        #                 game_result=result_str,
+        #                 player=player.name,
+        #                 previous_opinion=self.opinions.get(player.name, "还不了解这个玩家")
+        #             )
+        #
+        #             content = self._call_llm_api(prompt=prompt)
+        #             # 更新对该玩家的印象
+        #             self.opinions[player.name] = content.strip()
+        #             print(f"{self.name} 更新了对 {player.name} 的印象: {content}")
+        #         except Exception as e:
+        #             print(f"反思玩家 {player.name} 时出错: {str(e)}")
 
     def _read_file(self, filepath: str) -> str:
         """读取文件内容"""
@@ -220,7 +242,7 @@ class LLMPlayer(AIPlayer):
             print(f"读取文件 {filepath} 失败: {str(e)}")
             return ""
 
-    def get_self_curent_round_info(self, game_state: GameInfoState) -> str:
+    def get_self_current_round_info(self, game_state: GameInfoState) -> str:
         return f"""
         - 你的手牌：{', '.join(str(card) for card in self.player.hand)}
         - 你已下注：{self.player.bet_in_round}

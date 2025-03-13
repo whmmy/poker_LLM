@@ -92,14 +92,14 @@ class PokerTable:
         sb_player = self.players[sb_pos]
         sb_amount = sb_player.place_bet(self.small_blind)
         self.pot += sb_amount
-        self.log_action(sb_player, Action.RAISE, sb_amount, "")
+        self.log_action(sb_player, Action.SMALL_BLIND, sb_amount, "")
 
         # 下大盲注
         bb_player = self.players[bb_pos]
         bb_amount = bb_player.place_bet(self.big_blind)
         self.pot += bb_amount
         self.current_bet = self.big_blind
-        self.log_action(bb_player, Action.RAISE, bb_amount, "")
+        self.log_action(bb_player, Action.BIG_BLIND, bb_amount, "")
 
         # 设置当前行动玩家为大盲注后的玩家
         self.current_player_idx = (bb_pos + 1) % len(self.players)

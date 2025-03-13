@@ -80,9 +80,9 @@ class GameController:
         if verbose:
             print(f"\n开始第 {self.table.hand_number} 手牌")
             print(f"庄家位置: {self.table.dealer_position}")
-            print("玩家筹码:")
+            print("玩家信息:")
             for player in self.table.players:
-                print(f"  {player.name}: {player.chips}")
+                print(f"{player.name}:\n 手牌:{', '.join(str(card) for card in player.hand)}, 筹码:{player.chips}")
 
         # 进行翻牌前的下注
         self.run_betting_round(verbose)
@@ -96,6 +96,7 @@ class GameController:
         # 进行翻牌
         self.table.move_to_next_stage()  # 进入翻牌阶段
         if verbose:
+            print(f"在场玩家：{', '.join(f'{p.name}, 筹码:{p.chips}' for p in active_players)}")
             print(f"\n翻牌: {', '.join(str(card) for card in self.table.community_cards)}")
         self.run_betting_round(verbose)
 
@@ -108,6 +109,7 @@ class GameController:
         # 进行转牌
         self.table.move_to_next_stage()  # 进入转牌阶段
         if verbose:
+            print(f"在场玩家：{', '.join(f'{p.name}, 筹码:{p.chips}' for p in active_players)}")
             print(f"\n转牌: {', '.join(str(card) for card in self.table.community_cards)}")
         self.run_betting_round(verbose)
 
@@ -120,6 +122,7 @@ class GameController:
         # 进行河牌
         self.table.move_to_next_stage()  # 进入河牌阶段
         if verbose:
+            print(f"在场玩家：{', '.join(f'{p.name}, 筹码:{p.chips}' for p in active_players)}")
             print(f"\n河牌: {', '.join(str(card) for card in self.table.community_cards)}")
         self.run_betting_round(verbose)
 
@@ -131,6 +134,7 @@ class GameController:
             active_players = [p for p in self.table.players if p.is_active and not p.folded]
             print("\n摊牌:")
             for player in active_players:
+                print(f"在场玩家：{', '.join(f'{p.name}, 筹码:{p.chips}' for p in active_players)}")
                 print(f"  {player.name}: {', '.join(str(card) for card in player.hand)}\n")
             print(f"公共牌: {', '.join(str(card) for card in self.table.community_cards)}")
 
@@ -153,10 +157,11 @@ class GameController:
                 if self.table.stage == GameStage.PREFLOP:
                     # 翻牌前从大盲注后的玩家开始
                     bb_pos = (self.table.dealer_position + 2) % len(self.table.players)
-                    self.table.current_player_idx = (bb_pos + 1) % len(self.table.players)
+                    self.table.current_player_idx = bb_pos  # 修改：不要+1，因为next_player会+1
+                    print(f'翻牌前下注,从{(bb_pos + 1) % len(self.table.players)}开始')
                 else:
                     # 翻牌后从庄家后第一个玩家开始
-                    self.table.current_player_idx = (self.table.dealer_position + 1) % len(self.table.players)
+                    self.table.current_player_idx = self.table.dealer_position  # 修改：不要+1，因为next_player会+1
                 first_action = False
 
             current_player = self.table.next_player()

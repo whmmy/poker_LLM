@@ -32,6 +32,8 @@ class Action(Enum):
     CALL = "call"  # 跟注
     RAISE = "raise"  # 加注
     ALL_IN = "all-in"  # 全押
+    BIG_BLIND = "big-blind"  # 大盲注
+    SMALL_BLIND = "small-blind"  # 小盲注
 
 
 class GameStage(Enum):

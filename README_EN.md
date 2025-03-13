@@ -73,11 +73,9 @@ start_game(players, hands=10, chips=1000, small_blind=5, big_blind=10)
 
 1. **Side Pot Calculation Issue**: The current version does not calculate winner chips according to side pots. There is an `award_pot_new` method in `poker_engine.py` that implements side pot calculation, but the simplified `award_pot` method is currently used, which does not consider side pot situations.
 
-2. **First Round Action Starting Position Issue**: In the `run_betting_round` method of `game_controller.py`, there is an issue with the starting position setting for the first round.
+2. **Incomplete Output**: The information output during the game is not comprehensive, and some key information may not be displayed.
 
-3. **Incomplete Output**: The information output during the game is not comprehensive, and some key information may not be displayed.
-
-4. **Lack of Side Pot Implementation**: Although there is a method for side pot calculation (`award_pot_new`) in the code, the simplified pot distribution method is actually used, which cannot handle side pot distribution in complex situations such as all-in.
+3. **Lack of Side Pot Implementation**: Although there is a method for side pot calculation (`award_pot_new`) in the code, the simplified pot distribution method is actually used, which cannot handle side pot distribution in complex situations such as all-in.
 
 ## Extended Features
 
