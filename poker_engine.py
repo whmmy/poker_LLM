@@ -587,6 +587,7 @@ class PokerTable:
         self.game_result_log[self.hand_number] = GameResult(
             hand_number=self.hand_number,
             pot=self.pot,
+            stage=self.stage,
             community_cards=self.community_cards,
             winners=[GameWinnerInfo(
                 player_name=player.name,

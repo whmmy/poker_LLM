@@ -76,12 +76,16 @@ class GameWinnerInfo:
 class GameResult:
     hand_number: int = 0
     pot: int = 0
+    stage: GameStage = GameStage.PREFLOP
     community_cards: List[Card] = field(default_factory=list)
     winners: List[GameWinnerInfo] = field(default_factory=list)
 
     def get_result_info(self):
         prompt = f"- 最终底池：{self.pot} \n获胜玩家:\n"
         for winner in self.winners:
-            prompt += f"玩家 {winner.player_name} 获胜，赢得筹码:{winner.amount},手牌信息为：{', '.join(str(card) for card in winner.hand)} \n"
-
+            prompt += f"玩家 {winner.player_name} 获胜，赢得筹码:{winner.amount}"
+            if self.stage.value == "SHOWDOWN":
+                prompt += f", 手牌为:{','.join([str(card) for card in winner.hand])}\n"
+            else:
+                prompt += "\n"
         return prompt
