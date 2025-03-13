@@ -198,6 +198,7 @@ class PokerTable:
 
         # 添加玩家行动到游戏日志
         action_record = {
+            "type": 3,
             "hand_number": self.hand_number,
             "stage": self.stage.value,
             "player_name": player.name,
@@ -553,6 +554,7 @@ class PokerTable:
         # 计算主池和边池
         remaining_pot = self.pot
         previous_bet = 0
+        total_awards = {player.name: 0 for player in winners}  # 记录每个获胜者获得的总筹码
 
         for i, player in enumerate(all_players):
             current_bet = player.total_bet
@@ -573,8 +575,10 @@ class PokerTable:
                 # 分配筹码
                 for winner in current_winners:
                     winner.chips += award_per_winner
+                    total_awards[winner.name] += award_per_winner
                 if remainder > 0 and current_winners:
                     current_winners[0].chips += remainder
+                    total_awards[current_winners[0].name] += remainder
 
             remaining_pot -= current_pot
             previous_bet = current_bet
@@ -589,17 +593,18 @@ class PokerTable:
             "pot": self.pot,
             "winners": [{
                 "player_name": player.name,
-                "amount": player.chips - (player.initial_chips - player.total_bet)
+                "amount": total_awards[player.name]
             } for player in winners]
         }
 
         self.game_result_log[self.hand_number] = GameResult(
             hand_number=self.hand_number,
             pot=self.pot,
+            stage=self.stage,
             community_cards=self.community_cards,
             winners=[GameWinnerInfo(
                 player_name=player.name,
-                amount=player.chips - (player.initial_chips - player.total_bet),
+                amount=total_awards[player.name],
                 hand=player.hand
             ) for player in winners]
         )
@@ -721,14 +726,34 @@ class PokerTable:
                 print(f"\n=== 新一手牌 #{record['hand_number']} ===")
                 print(f"庄家位置: {record['dealer']}")
                 print(f"盲注: 小盲 {record['small_blind']}, 大盲 {record['big_blind']}")
-                print("玩家筹码:")
+                print("玩家信息:")
                 for player in record["players"]:
-                    print(f"  {player['name']}: {player['chips']} 筹码")
+                    status = ""
+                    if player['folded']:
+                        status = "(已弃牌)"
+                    elif player['all_in']:
+                        status = "(全押)"
+                    elif not player['is_active']:
+                        status = "(出局)"
+                    print(f"  {player['name']} {status}:")
+                    print(f"    筹码: {player['chips']}")
+                    print(f"    手牌: {', '.join(player['hand'])}")
 
             elif event_type == 2:
                 # 系统发牌信息
                 print(f"\n=== {record['stage']} 阶段 ===")
                 print(f"公共牌: {', '.join(record['community_cards'])}")
+                # 显示所有玩家的手牌
+                print("当前玩家手牌:")
+                for player in record.get("players", []):
+                    status = ""
+                    if player['folded']:
+                        status = "(已弃牌)"
+                    elif player['all_in']:
+                        status = "(全押)"
+                    elif not player['is_active']:
+                        continue
+                    print(f"  {player['name']} {status}: {', '.join(player['hand'])}")
 
             elif event_type == 3:
                 # 玩家行动信息
@@ -740,6 +765,9 @@ class PokerTable:
                     print(f"表现: {record['behavior']}")
                 print(f"底池: {record['pot']}")
                 print(f"剩余筹码: {record['player_chips']}")
+                # 显示该玩家的手牌
+                if 'hand' in record:
+                    print(f"手牌: {', '.join(record['hand'])}")
 
             elif event_type == 4:
                 # 摊牌信息
@@ -747,7 +775,12 @@ class PokerTable:
                 print(f"公共牌: {', '.join(record['community_cards'])}")
                 for player in record["players"]:
                     winner_mark = "(赢家)" if player.get("is_winner", False) else ""
-                    print(f"\n玩家 {player['player_name']} {winner_mark}")
+                    status = ""
+                    if player.get('folded', False):
+                        status = "(已弃牌)"
+                    elif player.get('all_in', False):
+                        status = "(全押)"
+                    print(f"\n玩家 {player['player_name']} {winner_mark} {status}")
                     print(f"手牌: {', '.join(player['hand'])}")
                     print(f"牌型: {player['hand_rank']}")
 

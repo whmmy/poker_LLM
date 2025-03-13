@@ -279,4 +279,5 @@ class GameController:
     def handle_reflection(self):
         game_result = self.table.game_result_log[self.table.hand_number]
         for p in self.ai_players:
-            p.reflect_on_game(self.prepare_game_state(p.player), game_result)
+            if p.player.is_active:
+                p.reflect_on_game(self.prepare_game_state(p.player), game_result)
