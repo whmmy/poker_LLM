@@ -7,6 +7,7 @@ from engine_info import Card, Action, GameStage, Player
 from openai import OpenAI
 from game_info import GameAction, GameInfoState, GamePlayerAction, GameResult
 import re
+from anthropic import Anthropic
 
 DESISION_PROMPT_PATH = "prompt/decision_prompt.txt"
 REFLECT_PROMPT_PATH = "prompt/reflect_prompt.txt"
@@ -37,9 +38,12 @@ class AIPlayer:
                 - position: 自己的位置
                 - dealer_position: 庄家位置
                 - action_history: 行动历史
-        
         Returns:
-            Tuple[Action, int]: 行动类型和下注金额
+        GamePlayerAction: 玩家行动，包含以下属性：
+            - action: 行动类型，如FOLD、CHECK、CALL等
+            - amount: 下注金额
+            - play_reason: 行动理由
+            - behavior: 行为描述
         """
         raise NotImplementedError("子类必须实现此方法")
 
@@ -56,9 +60,13 @@ class LLMPlayer(AIPlayer):
         self.model_name = model_name
         self.api_key = api_key
         self.base_url = base_url
-        self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+        self.client = None
         self.opinions = {}
         self.all_player_previous = '对他们还不了解'
+
+    def _call_llm_api(self, prompt: str) -> str:
+        """调用大语言模型API获取响应"""
+        raise NotImplementedError("子类必须实现此方法")
 
     def make_decision(self, game_state: GameInfoState) -> GamePlayerAction:
         print(f'玩家 {self.name} 正在思考...')
@@ -110,32 +118,6 @@ class LLMPlayer(AIPlayer):
         )
 
         return prompt
-
-    def _call_llm_api(self, prompt: str) -> str:
-        """调用大语言模型API获取响应"""
-        # 每次都发送相同的原始prompt
-        messages = [
-            {"role": "user", "content": prompt}
-        ]
-
-        # print(f"玩家 LLM请求的提示语信息: {prompt}")
-        response = self.client.chat.completions.create(
-            model=self.model_name,
-            messages=messages
-        )
-
-        if response.choices:
-            message = response.choices[0].message
-            content = message.content if message.content else ""
-            reasoning_content = getattr(message, "reasoning_content", "")
-            if reasoning_content != '':
-                print(f"{RED} LLM推理内容: {reasoning_content} {RESET}")
-            print(f"{RED} LLM推理内容: {content} {RESET}")
-            return content
-
-        # 临时使用随机响应进行测试
-        actions = ["FOLD", "CHECK", "CALL", f"RAISE {random.randint(50, 200)}", "ALL_IN"]
-        return random.choice(actions)
 
     def _parse_response(self, response: str, game_state: GameInfoState) -> GamePlayerAction:
         """解析大语言模型的响应"""
@@ -278,3 +260,54 @@ class LLMPlayer(AIPlayer):
             prompt += f'玩家 {player.name}:{previous_opinion}\n'
 
         return prompt
+
+
+class OpenAiLLMUser(LLMPlayer):
+
+    def _call_llm_api(self, prompt: str) -> str:
+        if self.client is None:
+            self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+        # 每次都发送相同的原始prompt
+        messages = [
+            {"role": "user", "content": prompt}
+        ]
+
+        # print(f"玩家 LLM请求的提示语信息: {prompt}")
+        response = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=messages
+        )
+
+        if response.choices:
+            message = response.choices[0].message
+            content = message.content if message.content else ""
+            reasoning_content = getattr(message, "reasoning_content", "")
+            if reasoning_content != '':
+                print(f"{RED} LLM推理内容: {reasoning_content} {RESET}")
+            print(f"{RED} LLM推理内容: {content} {RESET}")
+            return content
+
+
+class AnthropicLLMUser(LLMPlayer):
+
+    def _call_llm_api(self, prompt: str) -> str:
+        if self.client is None:
+            self.client = Anthropic(api_key=self.api_key, base_url=self.base_url)
+        # 每次都发送相同的原始prompt
+        messages = [
+            {"role": "user", "content": prompt}
+        ]
+
+        # print(f"玩家 LLM请求的提示语信息: {prompt}")
+        response = self.client.messages.create(
+            max_tokens=1024,
+            model=self.model_name,
+            messages=messages
+        )
+
+        if response.content:
+            message = response.content[0]
+            content = message.text if message.text else ""
+            print(f"{RED} LLM推理内容: {content} {RESET}")
+
+            return content
