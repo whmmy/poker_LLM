@@ -17,11 +17,19 @@
 
 ### 配置API密钥
 
-在运行前，需要在`main.py`中配置大语言模型的API密钥和基础URL：
+在运行前，需要在`main.py`中配置大语言模型的API密钥和基础URL。目前支持两种类型的LLM玩家：
 
+1. OpenAI兼容接口的模型（如Deepseek、QWen等）：
 ```python
-players.append(LLMPlayer(name="玩家名称", model_name="模型名称", api_key='YOUR_API_KEY', base_url="YOUR_BASE_URL"))
+players.append(OpenAiLLMUser(name="玩家名称", model_name="模型名称", api_key='YOUR_API_KEY', base_url="YOUR_BASE_URL"))
 ```
+
+2. Anthropic Claude模型：
+```python
+players.append(AnthropicLLMUser(name="玩家名称", model_name="模型名称", api_key='YOUR_API_KEY', base_url="YOUR_BASE_URL"))
+```
+
+请根据使用的模型类型选择对应的配置方式，并填入相应的API密钥和基础URL。
 
 ### 开始游戏
 

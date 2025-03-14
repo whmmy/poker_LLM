@@ -17,11 +17,19 @@ This project is a Texas Hold'em Poker AI battle framework that uses Large Langua
 
 ### Configure API Keys
 
-Before running, you need to configure the API key and base URL for the large language model in `main.py`:
+Before running, you need to configure the API key and base URL for the large language model in `main.py`. Currently, two types of LLM players are supported:
 
+1. Models with OpenAI-compatible interface (such as Deepseek, QWen, etc.):
 ```python
-players.append(LLMPlayer(name="Player Name", model_name="Model Name", api_key='YOUR_API_KEY', base_url="YOUR_BASE_URL"))
+players.append(OpenAiLLMUser(name="Player Name", model_name="Model Name", api_key='YOUR_API_KEY', base_url="YOUR_BASE_URL"))
 ```
+
+2. Anthropic Claude model:
+```python
+players.append(AnthropicLLMUser(name="Player Name", model_name="Model Name", api_key='YOUR_API_KEY', base_url="YOUR_BASE_URL"))
+```
+
+Please choose the appropriate configuration method based on the model type you are using, and fill in the corresponding API key and base URL.
 
 ### Start the Game
 
