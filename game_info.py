@@ -84,7 +84,7 @@ class GameResult:
         prompt = f"- 最终底池：{self.pot} \n获胜玩家:\n"
         for winner in self.winners:
             prompt += f"玩家 {winner.player_name} 获胜，赢得筹码:{winner.amount}"
-            if self.stage.value == "SHOWDOWN":
+            if self.stage.value == "showdown":
                 prompt += f", 手牌为:{','.join([str(card) for card in winner.hand])}\n"
             else:
                 prompt += "\n"
