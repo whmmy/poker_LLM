@@ -91,3 +91,11 @@ start_game(players, hands=10, chips=1000, small_blind=5, big_blind=10)
 - AI players can analyze and reflect on other players
 - Different large language models can be customized as AI players
 - Support for adjusting game parameters, such as blind size, initial chips, etc.
+
+## Program Screenshots
+
+Showing LLM call results and reasoning process
+![Program Screenshot](./doc/img/1.png)
+
+Showing the process of LLM analyzing other players' behavior
+![Program Screenshot](./doc/img/2.png)

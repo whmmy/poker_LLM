@@ -128,7 +128,8 @@ class LLMPlayer(AIPlayer):
             message = response.choices[0].message
             content = message.content if message.content else ""
             reasoning_content = getattr(message, "reasoning_content", "")
-            print(f"{RED} LLM思考内容: {reasoning_content} {RESET}")
+            if reasoning_content != '':
+                print(f"{RED} LLM推理内容: {reasoning_content} {RESET}")
             print(f"{RED} LLM推理内容: {content} {RESET}")
             return content
 
@@ -194,7 +195,6 @@ class LLMPlayer(AIPlayer):
         result_str = game_result.get_result_info()
         # 生成所有玩家信息
         player_info = self.get_all_player_info(game_state)
-
 
         # 使用一次调用为所有玩家进行分析
         basePrompt = self._read_file(REFLECT_ALL_PROMPT_PATH)
