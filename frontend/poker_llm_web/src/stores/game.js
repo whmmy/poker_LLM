@@ -30,13 +30,32 @@ export const useGameStore = defineStore('game', () => {
   // 获取所有玩家信息
   const players = computed(() => {
     // 查找最新的玩家信息记录
+    let playerInfo = []
+    
+    // 首先找到基础玩家信息
     for (let i = currentIndex.value; i >= 0; i--) {
       const record = gameData.value[i]
       if (record.type === 1 && record.players) {
-        return record.players
+        playerInfo = JSON.parse(JSON.stringify(record.players))
+        break
       }
     }
-    return []
+    
+    // 然后检查当前索引之前的所有弃牌动作，更新玩家状态
+    if (playerInfo.length > 0) {
+      for (let i = 0; i <= currentIndex.value; i++) {
+        const record = gameData.value[i]
+        if (record.type === 3 && record.action === 'fold') {
+          // 找到对应玩家并更新弃牌状态
+          const player = playerInfo.find(p => p.name === record.player_name)
+          if (player) {
+            player.folded = true
+          }
+        }
+      }
+    }
+    
+    return playerInfo
   })
   
   // 获取当前公共牌

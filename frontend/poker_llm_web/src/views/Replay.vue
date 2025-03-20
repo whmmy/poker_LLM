@@ -1,91 +1,8 @@
 <template>
   <div class="replay-container">
-    <div class="game-header">
-      <h1>德州扑克游戏回放</h1>
-      <div class="game-info">
-        <div class="info-item">
-          <span class="label">当前阶段:</span>
-          <span class="value">{{ formatStage(currentStage) }}</span>
-        </div>
-        <div class="info-item">
-          <span class="label">底池:</span>
-          <span class="value">{{ currentPot }}</span>
-        </div>
-        <div class="info-item">
-          <span class="label">手牌编号:</span>
-          <span class="value">{{ currentAction?.hand_number || 1 }}</span>
-        </div>
-      </div>
-    </div>
-    
-    <div class="poker-table">
-      <!-- 公共牌区域 -->
-      <div class="community-cards">
-        <h3>公共牌</h3>
-        <div class="cards-container">
-          <transition-group name="card">
-            <div 
-              v-for="(card, index) in communityCards" 
-              :key="card" 
-              class="card"
-              :style="{animationDelay: `${index * 0.2}s`}"
-            >
-              {{ card }}
-            </div>
-          </transition-group>
-        </div>
-      </div>
-      
-      <!-- 玩家区域 -->
-      <div class="players-container">
-        <div 
-          v-for="(player, index) in players" 
-          :key="player.name"
-          class="player-seat"
-          :class="{
-            'active-player': currentAction && currentAction.player_name === player.name,
-            'folded-player': player.folded
-          }"
-        >
-          <div class="player-info">
-            <div class="player-name">{{ player.name }}</div>
-            <div class="player-chips">筹码: {{ player.chips }}</div>
-            <div class="player-bet">已下注: {{ player.bet_in_round }}</div>
-            <div class="player-status">
-              <span v-if="player.folded" class="status-tag folded">已弃牌</span>
-              <span v-else-if="player.all_in" class="status-tag all-in">全押</span>
-            </div>
-          </div>
-          
-          <div class="player-cards">
-            <transition-group name="card">
-              <div 
-                v-for="(card, cardIndex) in player.hand" 
-                :key="`${player.name}-${card}`"
-                class="card player-card"
-                :style="{animationDelay: `${cardIndex * 0.2}s`, left: `${cardIndex * 60}px`, zIndex: cardIndex + 1}"
-              >
-                {{ card }}
-              </div>
-            </transition-group>
-          </div>
-        </div>
-      </div>
-      
-      <!-- 当前行动信息 -->
-      <div class="current-action" v-if="currentAction">
-        <div class="action-player">{{ currentAction.player_name }}</div>
-        <div class="action-type">{{ formatAction(currentAction.action) }}</div>
-        <div class="action-amount" v-if="currentAction.amount > 0">金额: {{ currentAction.amount }}</div>
-        <div class="action-behavior" v-if="currentAction.behavior">
-          <div class="behavior-title">行为描述:</div>
-          <div class="behavior-content">{{ currentAction.behavior }}</div>
-        </div>
-      </div>
-    </div>
-    
-    <!-- 控制面板 -->
+    <!-- 控制面板 - 移到左侧 -->
     <div class="control-panel">
+      <h2>控制面板</h2>
       <div class="progress">
         <span>进度: {{ currentIndex + 1 }} / {{ gameData.length }}</span>
         <el-slider 
@@ -133,6 +50,92 @@
       </div>
       
       <el-button type="default" @click="backToHome">返回首页</el-button>
+    </div>
+    
+    <div class="game-content">
+      <div class="game-header">
+        <h1>德州扑克游戏回放</h1>
+        <div class="game-info">
+          <div class="info-item">
+            <span class="label">当前阶段:</span>
+            <span class="value">{{ formatStage(currentStage) }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">底池:</span>
+            <span class="value">{{ currentPot }}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">手牌编号:</span>
+            <span class="value">{{ currentAction?.hand_number || 1 }}</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="poker-table">
+        <!-- 公共牌区域 -->
+        <div class="community-cards">
+          <h3>公共牌</h3>
+          <div class="cards-container">
+            <transition-group name="card">
+              <div 
+                v-for="(card, index) in communityCards" 
+                :key="card" 
+                class="card"
+                :style="{animationDelay: `${index * 0.2}s`}"
+              >
+                {{ card }}
+              </div>
+            </transition-group>
+          </div>
+        </div>
+        
+        <!-- 玩家区域 -->
+        <div class="players-container">
+          <div 
+            v-for="(player, index) in players" 
+            :key="player.name"
+            class="player-seat"
+            :class="{
+              'active-player': currentAction && currentAction.player_name === player.name,
+              'folded-player': player.folded
+            }"
+          >
+            <div class="player-info">
+              <div class="player-name">{{ player.name }}</div>
+              <div class="player-chips">筹码: {{ player.chips }}</div>
+              <div class="player-bet">已下注: {{ player.bet_in_round }}</div>
+              <div class="player-status">
+                <span v-if="player.folded" class="status-tag folded">已弃牌</span>
+                <span v-else-if="player.all_in" class="status-tag all-in">全押</span>
+              </div>
+            </div>
+            
+            <div class="player-cards">
+              <transition-group name="card">
+                <div 
+                  v-for="(card, cardIndex) in player.hand" 
+                  :key="`${player.name}-${card}`"
+                  class="card"
+                  :style="{animationDelay: `${cardIndex * 0.2}s`}"
+                >
+                  {{ card }}
+                </div>
+              </transition-group>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 当前行动信息 -->
+        <div class="current-action" v-if="currentAction">
+          <div class="action-player">{{ currentAction.player_name }}</div>
+          <div class="action-type">{{ formatAction(currentAction.action) }}</div>
+          <div class="action-amount" v-if="currentAction.amount > 0">金额: {{ currentAction.amount }}</div>
+          <div class="action-behavior" v-if="currentAction.behavior">
+            <div class="behavior-title">行为描述:</div>
+            <div class="behavior-content">{{ currentAction.behavior }}</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -249,10 +252,57 @@ onUnmounted(() => {
 
 <style scoped>
 .replay-container {
-  max-width: 1200px;
-  margin: 0 auto;
+  display: flex;
   padding: 1rem;
-  font-family: 'Arial', sans-serif;
+  gap: 1.5rem;
+  height: 100vh;
+}
+
+/* 控制面板样式 - 左侧固定 */
+.control-panel {
+  background-color: #f5f7fa;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  width: 250px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+
+.control-panel h2 {
+  color: #409EFF;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.progress {
+  margin-bottom: 1.5rem;
+  color: #000;
+}
+
+.controls {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin-bottom: 1.5rem;
+}
+
+.speed-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin-bottom: 1.5rem;
+}
+
+/* 游戏内容区域 */
+.game-content {
+  flex: 1;
+  overflow-y: auto;
+  max-width: calc(100% - 280px);
 }
 
 .game-header {
@@ -260,16 +310,11 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   margin-bottom: 2rem;
-  background-color: #f8f9fa;
-  padding: 1.5rem;
-  border-radius: 1rem;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .game-header h1 {
-  color: #2c3e50;
+  color: #409EFF;
   margin-bottom: 1rem;
-  font-size: 2rem;
 }
 
 .game-info {
@@ -283,9 +328,9 @@ onUnmounted(() => {
 }
 
 .info-item .label {
+  color: #000;
   font-weight: bold;
   margin-right: 0.5rem;
-  color: #606266;
 }
 
 .info-item .value {
@@ -297,15 +342,13 @@ onUnmounted(() => {
   background-color: #1a6c35;
   border-radius: 50%;
   padding: 3rem;
-  margin: 0 auto 2rem;
+  margin-bottom: 2rem;
   position: relative;
-  width: 800px;
-  height: 600px;
+  min-height: 500px;
   display: flex;
   flex-direction: column;
   align-items: center;
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-  border: 15px solid #8B4513;
 }
 
 .community-cards {
@@ -314,18 +357,14 @@ onUnmounted(() => {
 }
 
 .community-cards h3 {
-  color: #f8f9fa;
+  color: white;
   margin-bottom: 1rem;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .cards-container {
   display: flex;
   gap: 1rem;
   justify-content: center;
-  position: relative;
-  height: 100px;
-  margin: 10px 0;
 }
 
 .card {
@@ -341,10 +380,7 @@ onUnmounted(() => {
   font-weight: bold;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   animation: cardAppear 0.5s ease-out;
-  border: 1px solid #dcdfe6;
-  position: absolute;
-  z-index: 1;
-  margin: 0 5px;
+  color: #000;
 }
 
 @keyframes cardAppear {
@@ -359,11 +395,10 @@ onUnmounted(() => {
 }
 
 .players-container {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 15px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
   width: 100%;
-  margin-top: 20px;
 }
 
 .player-seat {
@@ -371,75 +406,77 @@ onUnmounted(() => {
   border-radius: 1rem;
   padding: 1rem;
   margin: 0.5rem;
-  min-width: 180px;
-  min-height: 200px;
+  min-width: 200px;
   transition: all 0.3s ease;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex;
-  flex-direction: column;
-  position: relative;
 }
 
 .active-player {
   box-shadow: 0 0 15px #f8e71c;
   transform: scale(1.05);
   background-color: rgba(0, 0, 0, 0.7);
-  border: 1px solid #f8e71c;
 }
 
 .folded-player {
-  opacity: 0.6;
-}
-
-.player-info {
-  color: #f8f9fa;
-  margin-bottom: 1rem;
-}
-
-.player-name {
-  font-weight: bold;
-  font-size: 1.2rem;
-  margin-bottom: 0.5rem;
-  color: #f8f9fa;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
-}
-
-.player-chips {
-  color: #67c23a;
-  font-weight: bold;
-}
-
-.player-bet {
-  color: #e6a23c;
-}
-
-.player-cards {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: center;
+  opacity: 0.5;
+  border: 2px dashed #f56c6c;
   position: relative;
-  height: 80px;
-  margin-top: 10px;
-  width: 100%;
+  background-color: rgba(0, 0, 0, 0.3);
 }
 
-.player-card {
+.folded-player .player-cards {
+  filter: grayscale(100%);
+  opacity: 0.4;
+}
+
+.folded-player::before {
+  content: '';
   position: absolute;
-  transition: all 0.3s ease;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(245, 108, 108, 0.1),
+    rgba(245, 108, 108, 0.1) 10px,
+    rgba(0, 0, 0, 0.2) 10px,
+    rgba(0, 0, 0, 0.2) 20px
+  );
+  border-radius: 1rem;
+  pointer-events: none;
+}
+
+.player-status {
+  margin-top: 0.5rem;
+  text-align: center;
 }
 
 .status-tag {
   display: inline-block;
-  padding: 0.2rem 0.5rem;
+  padding: 0.3rem 0.8rem;
   border-radius: 0.25rem;
-  font-size: 0.8rem;
-  margin-top: 0.5rem;
+  font-size: 0.9rem;
   font-weight: bold;
+  margin-top: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .folded {
   background-color: #f56c6c;
   color: white;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.7;
+  }
 }
 
 .all-in {
@@ -448,14 +485,15 @@ onUnmounted(() => {
 }
 
 .current-action {
+  width: 80%;
   background-color: rgba(255, 255, 255, 0.9);
   border-radius: 1rem;
-  padding: 1.5rem;
+  padding: 1rem;
   margin-top: 2rem;
-  width: 400px;
+  max-width: 80%;
   text-align: center;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  border: 1px solid #dcdfe6;
+  color: #000;
 }
 
 .action-player {
@@ -468,63 +506,21 @@ onUnmounted(() => {
 .action-type {
   font-size: 1.1rem;
   margin-bottom: 0.5rem;
-  color: #303133;
-}
-
-.action-amount {
-  color: #67c23a;
-  font-weight: bold;
-  margin-bottom: 0.5rem;
 }
 
 .action-behavior {
   margin-top: 1rem;
   text-align: left;
-  background-color: #f8f9fa;
-  padding: 1rem;
-  border-radius: 0.5rem;
 }
 
 .behavior-title {
   font-weight: bold;
   margin-bottom: 0.5rem;
-  color: #303133;
 }
 
 .behavior-content {
-  font-style: italic;
-  color: #606266;
-  line-height: 1.5;
+  font-style: italic
 }
-
-.control-panel {
-  background-color: #f5f7fa;
-  border-radius: 1rem;
-  padding: 1.5rem;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.progress {
-  margin-bottom: 1.5rem;
-}
-
-.controls {
-  display: flex;
-  justify-content: center;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.speed-control {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
 /* 卡片动画 */
 .card-enter-active,
 .card-leave-active {
