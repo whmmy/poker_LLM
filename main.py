@@ -3,9 +3,13 @@
 
 import os
 from typing import List
+from dotenv import load_dotenv
 
 from ai_player import AIPlayer, OpenAiLLMUser, AnthropicLLMUser
 from game_controller import GameController
+
+# 加载环境变量
+load_dotenv()
 
 
 def list_games():
@@ -51,11 +55,46 @@ def start_game(players: List[AIPlayer], hands, chips, small_blind, big_blind):
 
 
 if __name__ == "__main__":
-    players = [
-        OpenAiLLMUser(name="dsV3", model_name="deepseek-v3", api_key='USER_API_KEY', base_url="USER_BASE_URL"),
-        OpenAiLLMUser(name="dsR1", model_name="deepseek-r1", api_key='USER_API_KEY', base_url="USER_BASE_URL"),
-        OpenAiLLMUser(name="o3", model_name="o3-mini", api_key='USER_API_KEY', base_url="USER_BASE_URL"),
-        OpenAiLLMUser(name="Gork", model_name="gork", api_key='USER_API_KEY', base_url="USER_BASE_URL"),
-        AnthropicLLMUser(name="claude", model_name="claude-3-5", api_key='USER_API_KEY', base_url="USER_BASE_URL")
-    ]
-    start_game(players, hands=10, chips=1000, small_blind=5, big_blind=10)
+    # 从环境变量读取配置
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    openai_base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+    anthropic_base_url = os.getenv("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
+
+    # 游戏配置
+    initial_chips = int(os.getenv("INITIAL_CHIPS", "1000"))
+    small_blind = int(os.getenv("SMALL_BLIND", "5"))
+    big_blind = int(os.getenv("BIG_BLIND", "10"))
+    num_hands = int(os.getenv("NUM_HANDS", "10"))
+
+    # 验证必要的环境变量
+    if not openai_api_key and not anthropic_api_key:
+        raise ValueError("请至少配置 OPENAI_API_KEY 或 ANTHROPIC_API_KEY")
+
+    # 配置玩家 - 根据实际拥有的 API 密钥来配置
+    players = []
+
+    # OpenAI 兼容接口玩家示例 (DeepSeek, QWen, Gork 等)
+    if openai_api_key:
+        players.extend([
+            OpenAiLLMUser(name="DeepSeek-V3", model_name="deepseek-v3",
+                         api_key=openai_api_key, base_url=openai_base_url),
+            OpenAiLLMUser(name="DeepSeek-R1", model_name="deepseek-r1",
+                         api_key=openai_api_key, base_url=openai_base_url),
+            # 可根据需要添加更多玩家
+            # OpenAiLLMUser(name="QWen", model_name="qwen-plus",
+            #              api_key=openai_api_key, base_url=openai_base_url),
+        ])
+
+    # Anthropic Claude 玩家示例
+    if anthropic_api_key:
+        players.append(
+            AnthropicLLMUser(name="Claude", model_name="claude-3-5-sonnet-20241022",
+                           api_key=anthropic_api_key, base_url=anthropic_base_url)
+        )
+
+    if not players:
+        raise ValueError("请至少配置一个 AI 玩家")
+
+    start_game(players, hands=num_hands, chips=initial_chips,
+               small_blind=small_blind, big_blind=big_blind)
