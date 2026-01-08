@@ -541,32 +541,38 @@ class PokerTable:
         # 分配奖池
         self.award_pot(best_players)
 
-    # 完成分配奖池是添加边池的概念
     def award_pot(self, winners: List[Player]):
-        """将奖池分配给赢家"""
+        """将奖池分配给赢家（支持边池计算）"""
         if not winners:
             return
 
-        # 按照玩家的总下注金额排序
-        all_players = [p for p in self.players if not p.folded]
+        # 按照玩家的总下注金额排序（从小到大）
+        # 注意：需要包括所有已下注的玩家（包括弃牌的），因为他们已经投入了筹码
+        all_players = [p for p in self.players if p.total_bet > 0]
         all_players.sort(key=lambda p: p.total_bet)
 
         # 计算主池和边池
-        remaining_pot = self.pot
         previous_bet = 0
         total_awards = {player.name: 0 for player in winners}  # 记录每个获胜者获得的总筹码
+        side_pots_info = []  # 记录边池信息用于日志
 
         for i, player in enumerate(all_players):
             current_bet = player.total_bet
             bet_diff = current_bet - previous_bet
+
             if bet_diff <= 0:
                 continue
 
-            # 计算当前层级的池额
-            current_pot = bet_diff * (len(all_players) - i)
+            # 计算当前层级的池额（边池）
+            # 参与该层级池的玩家数量 = 所有下注 >= current_bet 的玩家
+            eligible_players = [p for p in all_players if p.total_bet >= current_bet]
+            players_in_pot = len(eligible_players)
+            current_pot = bet_diff * players_in_pot
 
             # 找出在当前池中的获胜者
+            # 只有未弃牌且下注 >= current_bet 的玩家才能争夺该池
             current_winners = [w for w in winners if w.total_bet >= current_bet]
+
             if current_winners:
                 # 计算每个获胜者应得的筹码
                 award_per_winner = current_pot // len(current_winners)
@@ -580,17 +586,46 @@ class PokerTable:
                     current_winners[0].chips += remainder
                     total_awards[current_winners[0].name] += remainder
 
-            remaining_pot -= current_pot
+                # 记录边池信息
+                side_pots_info.append({
+                    "pot_level": len(side_pots_info) + 1,
+                    "pot_amount": current_pot,
+                    "bet_threshold": current_bet,
+                    "eligible_players": [p.name for p in eligible_players],
+                    "winners": [w.name for w in current_winners],
+                    "award_per_winner": award_per_winner
+                })
+            else:
+                # 如果当前边池没有赢家（比如赢家是全押玩家，筹码不足参与该边池），
+                # 则该边池应该退还给所有有资格参与该边池的玩家
+                award_per_player = current_pot // len(eligible_players)
+                remainder = current_pot % len(eligible_players)
+
+                for player in eligible_players:
+                    player.chips += award_per_player
+                    # 注意：退还的筹码不计入total_awards，因为这不是赢来的
+                if remainder > 0:
+                    eligible_players[0].chips += remainder
+
+                # 记录边池退还信息
+                side_pots_info.append({
+                    "pot_level": len(side_pots_info) + 1,
+                    "pot_amount": current_pot,
+                    "bet_threshold": current_bet,
+                    "eligible_players": [p.name for p in eligible_players],
+                    "winners": [],  # 无赢家，退还
+                    "refunded": True,
+                    "award_per_winner": award_per_player
+                })
+
             previous_bet = current_bet
 
-            if remaining_pot <= 0:
-                break
-
-        # 记录奖池分配
+        # 记录奖池分配（包含边池信息）
         pot_award_record = {
             "type": 5,
             "hand_number": self.hand_number,
             "pot": self.pot,
+            "side_pots": side_pots_info,
             "winners": [{
                 "player_name": player.name,
                 "amount": total_awards[player.name]
@@ -605,47 +640,6 @@ class PokerTable:
             winners=[GameWinnerInfo(
                 player_name=player.name,
                 amount=total_awards[player.name],
-                hand=player.hand
-            ) for player in winners]
-        )
-
-        self.game_log.append(pot_award_record)
-        self.pot = 0
-
-    def award_pot_old(self, winners: List[Player]):
-        """将奖池分配给赢家"""
-        if not winners:
-            return
-
-        # 平分奖池
-        award_per_player = self.pot // len(winners)
-        remainder = self.pot % len(winners)
-
-        for player in winners:
-            player.chips += award_per_player
-
-        # 将余数给第一个玩家
-        if remainder > 0 and winners:
-            winners[0].chips += remainder
-
-        # 记录奖池分配
-        pot_award_record = {
-            "type": 5,
-            "hand_number": self.hand_number,
-            "pot": self.pot,
-            "winners": [{
-                "player_name": player.name,
-                "amount": award_per_player + (remainder if player == winners[0] else 0)
-            } for player in winners]
-        }
-        self.game_result_log[self.hand_number] = GameResult(
-            hand_number=self.hand_number,
-            pot=self.pot,
-            stage=self.stage,
-            community_cards=self.community_cards,
-            winners=[GameWinnerInfo(
-                player_name=player.name,
-                amount=award_per_player + (remainder if player == winners[0] else 0),
                 hand=player.hand
             ) for player in winners]
         )
