@@ -184,5 +184,5 @@ main_test.py
 
 # Claude Code related files
 .claude/
-tmpclaude-*-cwd/
+**/tmpclaude-*-cwd/
 nul
