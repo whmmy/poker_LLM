@@ -358,17 +358,26 @@ export const useGameStore = defineStore('game', () => {
   })
 
   // 检测手牌结束并显示结算
-  function checkHandEnd() {
-    if (!currentDecision.value || !currentDecision.value.game_state) return
+  function checkHandEnd(handNumber = null) {
+    // 如果没有传入 handNumber，使用当前决策的 hand_number
+    const targetHandNum = handNumber || (currentDecision.value?.hand_number)
 
-    const gameState = currentDecision.value.game_state
-    // 检查是否是摊牌阶段且有手牌结果
-    if (currentDecision.value.stage === 'showdown' && gameState.hand_result) {
+    if (!targetHandNum) return
+
+    // 从 events 中查找指定手牌的结算结果 (type: 6)
+    const handResult = getHandResult(targetHandNum)
+
+    if (handResult) {
+      // 格式化数据给 HandResultModal 使用
       handResultData.value = {
-        handNumber: currentDecision.value.hand_number,
-        winners: gameState.hand_result.winners || [],
-        potDistribution: gameState.hand_result.pot_distribution || [],
-        showCards: gameState.showdown_cards || {}
+        handNumber: handResult.hand_number,
+        pot: handResult.pot,
+        stage: handResult.stage,
+        communityCards: handResult.community_cards,
+        players: handResult.players || [],
+        winners: handResult.winners || [],
+        sidePots: handResult.side_pots || [],
+        timestamp: handResult.timestamp
       }
     }
   }

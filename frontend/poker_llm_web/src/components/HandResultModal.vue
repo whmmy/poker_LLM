@@ -7,10 +7,45 @@
     @close="handleClose"
     class="hand-result-dialog"
   >
+    <!-- 自动播放倒计时提示 -->
+    <div class="auto-play-hint" v-if="isAutoPlaying && autoCloseCountdown > 0">
+      <el-icon><video-play /></el-icon>
+      <span>{{ autoCloseCountdown }} 秒后自动继续播放...</span>
+    </div>
+
     <div class="result-content" v-if="resultData">
       <!-- 手牌信息 -->
       <div class="hand-info">
         <el-tag size="large" type="primary">手牌 #{{ resultData.handNumber }}</el-tag>
+        <el-tag size="large" type="warning" style="margin-left: 10px">
+          {{ resultData.stage === 'showdown' ? '摊牌' : resultData.stage }}
+        </el-tag>
+      </div>
+
+      <!-- 公共牌和底池 -->
+      <div class="pot-cards-section" v-if="resultData.communityCards && resultData.communityCards.length > 0">
+        <div class="section-title">
+          <el-icon><coin /></el-icon>
+          <span>底池: {{ resultData.pot }}</span>
+        </div>
+        <div class="community-cards-display">
+          <span
+            v-for="(card, index) in resultData.communityCards"
+            :key="index"
+            class="result-card"
+            :class="{ 'red': isRedCard(card) }"
+          >
+            {{ card }}
+          </span>
+        </div>
+      </div>
+
+      <!-- 底池信息（无公共牌时） -->
+      <div class="pot-section" v-else>
+        <div class="section-title">
+          <el-icon><coin /></el-icon>
+          <span>底池: {{ resultData.pot }}</span>
+        </div>
       </div>
 
       <!-- 赢家信息 -->
@@ -161,8 +196,8 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { Trophy, Coin, View, User } from '@element-plus/icons-vue'
+import { computed, watch, ref, onUnmounted } from 'vue'
+import { Trophy, Coin, View, User, VideoPlay } from '@element-plus/icons-vue'
 
 const props = defineProps({
   modelValue: {
@@ -172,6 +207,10 @@ const props = defineProps({
   resultData: {
     type: Object,
     default: null
+  },
+  isAutoPlaying: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -180,6 +219,39 @@ const emit = defineEmits(['update:modelValue', 'continue'])
 const visible = computed({
   get: () => props.modelValue,
   set: (val) => emit('update:modelValue', val)
+})
+
+// 倒计时逻辑
+const autoCloseCountdown = ref(0)
+let countdownTimer = null
+
+// 监听弹窗显示状态，启动倒计时
+watch(visible, (newVal) => {
+  if (newVal && props.isAutoPlaying) {
+    autoCloseCountdown.value = 5
+    countdownTimer = setInterval(() => {
+      autoCloseCountdown.value--
+      if (autoCloseCountdown.value <= 0) {
+        clearInterval(countdownTimer)
+        countdownTimer = null
+      }
+    }, 1000)
+  } else {
+    // 清理定时器
+    if (countdownTimer) {
+      clearInterval(countdownTimer)
+      countdownTimer = null
+    }
+    autoCloseCountdown.value = 0
+  }
+})
+
+// 组件卸载时清理定时器
+onUnmounted(() => {
+  if (countdownTimer) {
+    clearInterval(countdownTimer)
+    countdownTimer = null
+  }
 })
 
 const isRedCard = (card) => {
@@ -209,6 +281,23 @@ const handleContinue = () => {
   color: white;
   font-size: 1.3rem;
   font-weight: bold;
+}
+
+.auto-play-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #667eea22 0%, #764ba222 100%);
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  color: #667eea;
+  font-weight: 600;
+}
+
+.auto-play-hint .el-icon {
+  font-size: 1.2rem;
 }
 
 .result-content {
@@ -316,6 +405,32 @@ const handleContinue = () => {
   font-size: 0.95rem;
   color: #667eea;
   font-weight: 600;
+}
+
+.pot-cards-section {
+  margin-bottom: 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.pot-cards-section .section-title {
+  color: white;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.community-cards-display {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.community-cards-display .result-card {
+  background: white;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .pot-section {

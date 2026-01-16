@@ -240,6 +240,7 @@
     <HandResultModal
       v-model="showHandResult"
       :result-data="handResultData"
+      :is-auto-playing="isAutoPlaying"
       @continue="handleContinueAfterResult"
     />
 
@@ -331,6 +332,8 @@ const speed = ref(1500)
 const showPanel = ref(true)
 const showDetailsPanel = ref(true)
 const showHandResult = ref(false)
+const isJumping = ref(false) // 标记是否正在跳转，避免跳转时触发结算弹窗
+let autoCloseTimer = null // 自动关闭结算弹窗的定时器
 
 // 从 store 获取计算属性和状态
 const hasData = computed(() => gameStore.fullGameLog !== null)
@@ -464,9 +467,13 @@ const getSeatClasses = (player) => {
 }
 
 const handleSliderChange = () => {
+  isJumping.value = true // 标记为跳转操作
   if (isAutoPlaying.value) {
     gameStore.stopAutoPlay()
   }
+  setTimeout(() => {
+    isJumping.value = false
+  }, 100)
 }
 
 const handleSpeedChange = () => {
@@ -482,11 +489,19 @@ const next = () => {
 }
 
 const goToStart = () => {
+  isJumping.value = true
   gameStore.resetToStart()
+  setTimeout(() => {
+    isJumping.value = false
+  }, 100)
 }
 
 const goToEnd = () => {
+  isJumping.value = true
   gameStore.jumpToEnd()
+  setTimeout(() => {
+    isJumping.value = false
+  }, 100)
 }
 
 const togglePlay = () => {
@@ -498,7 +513,12 @@ const togglePlay = () => {
 }
 
 const jumpToHand = (handNumber) => {
+  isJumping.value = true // 标记为跳转操作
   gameStore.jumpToHand(handNumber)
+  // 延迟重置标志位，确保 watch 不会触发
+  setTimeout(() => {
+    isJumping.value = false
+  }, 100)
 }
 
 const togglePanel = () => {
@@ -524,17 +544,57 @@ const handlePlayerChange = (playerName) => {
 const handleContinueAfterResult = () => {
   showHandResult.value = false
   gameStore.handResultData = null
+  // 清理自动关闭定时器
+  if (autoCloseTimer) {
+    clearTimeout(autoCloseTimer)
+    autoCloseTimer = null
+  }
+}
+
+// 自动关闭结算弹窗并继续播放
+const autoCloseAndContinue = () => {
+  // 5秒后自动关闭并继续
+  autoCloseTimer = setTimeout(() => {
+    showHandResult.value = false
+    gameStore.handResultData = null
+    gameStore.startAutoPlay()
+    autoCloseTimer = null
+  }, 5000)
 }
 
 // 监听决策变化，检查是否显示手牌结算
-watch(currentDecision, (newDecision) => {
-  if (newDecision && newDecision.stage === 'showdown') {
-    gameStore.checkHandEnd()
-    if (gameStore.handResultData) {
-      showHandResult.value = true
-      // 如果正在自动播放，暂停
-      if (isAutoPlaying.value) {
-        gameStore.stopAutoPlay()
+watch(currentDecision, (newDecision, oldDecision) => {
+  if (!newDecision) return
+
+  // 如果正在跳转，不显示结算弹窗
+  if (isJumping.value) return
+
+  const currentHandNum = newDecision.hand_number
+  const oldHandNum = oldDecision?.hand_number
+
+  // 检查是否是手牌的最后一个决策（下一手的 hand_number 变了）
+  const isHandEnd = oldHandNum && currentHandNum !== oldHandNum
+
+  if (isHandEnd) {
+    // 检查上一手牌是否有结算数据
+    const handResult = gameStore.getHandResult(oldHandNum)
+    if (handResult) {
+      // 清理之前的定时器
+      if (autoCloseTimer) {
+        clearTimeout(autoCloseTimer)
+        autoCloseTimer = null
+      }
+
+      // 传入正确的手牌号（上一手）
+      gameStore.checkHandEnd(oldHandNum)
+
+      if (gameStore.handResultData) {
+        showHandResult.value = true
+
+        // 如果正在自动播放，5秒后自动关闭并继续
+        if (isAutoPlaying.value) {
+          autoCloseAndContinue()
+        }
       }
     }
   }
@@ -573,6 +633,11 @@ onMounted(() => {
 
 onUnmounted(() => {
   gameStore.stopAutoPlay()
+  // 清理自动关闭定时器
+  if (autoCloseTimer) {
+    clearTimeout(autoCloseTimer)
+    autoCloseTimer = null
+  }
   document.removeEventListener('keydown', handleKeyPress)
 })
 </script>
