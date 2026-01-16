@@ -91,14 +91,14 @@
       </div>
 
       <!-- 所有未弃牌玩家详情 -->
-      <div class="all-players-section" v-if="resultData.players && resultData.players.length > 0">
+      <div class="all-players-section" v-if="activePlayers.length > 0">
         <div class="section-title">
           <el-icon><user /></el-icon>
           <span>玩家详情</span>
         </div>
         <div class="players-grid">
           <div
-            v-for="player in resultData.players"
+            v-for="player in activePlayers"
             :key="player.name"
             class="player-result-card"
             :class="{ 'winner': resultData.winners?.some(w => w.name === player.name) }"
@@ -219,6 +219,20 @@ const emit = defineEmits(['update:modelValue', 'continue'])
 const visible = computed({
   get: () => props.modelValue,
   set: (val) => emit('update:modelValue', val)
+})
+
+// 过滤出参与的玩家（排除已出局的玩家）
+const activePlayers = computed(() => {
+  if (!props.resultData || !props.resultData.players) {
+    return []
+  }
+
+  return props.resultData.players.filter(player => {
+    // 排除已经出局的玩家：
+    // 1. 没有手牌的（hand 为空数组）
+    // 2. 本局下注为 0 的（未参与这局）
+    return player.hand && player.hand.length > 0 && player.total_bet > 0
+  })
 })
 
 // 倒计时逻辑
