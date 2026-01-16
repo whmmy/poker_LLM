@@ -8,6 +8,7 @@ from typing import List, Dict, Any, Optional
 from poker_engine import PokerTable, Player, GameStage, Action
 from ai_player import AIPlayer, LLMPlayer
 from game_info import GameInfoState
+from game_logger import GameLogger, PlayerActionLog
 
 
 class GameController:
@@ -24,12 +25,22 @@ class GameController:
         if not os.path.exists(self.log_dir):
             os.makedirs(self.log_dir)
 
+        # 初始化增强的日志记录器
+        self.game_logger = GameLogger(game_id=self.game_id, log_dir=self.log_dir)
+        self.game_logger.set_game_config(initial_chips, small_blind, big_blind)
+
     def add_player(self, ai_player: AIPlayer) -> bool:
         """添加AI玩家到游戏"""
         if len(self.ai_players) >= self.table.max_players:
             return False
         self.ai_players.append(ai_player)
-        return self.table.add_player(ai_player.player)
+        result = self.table.add_player(ai_player.player)
+
+        # 更新日志记录器中的玩家信息
+        if result:
+            self.game_logger.set_players(self.ai_players)
+
+        return result
 
     def prepare_game_state(self, current_player: Player) -> GameInfoState:
         """准备当前游戏状态信息，用于AI决策"""
@@ -91,10 +102,18 @@ class GameController:
         active_players = [p for p in self.table.players if p.is_active and not p.folded]
         if len(active_players) <= 1:
             self.table.award_pot(active_players)
+            # 记录手牌结算
+            self._log_hand_result()
             return
 
         # 进行翻牌
         self.table.move_to_next_stage()  # 进入翻牌阶段
+        # 记录翻牌事件
+        self.game_logger.log_community_cards(
+            self.table.hand_number,
+            "flop",
+            self.table.community_cards
+        )
         if verbose:
             print(f"在场玩家：{', '.join(f'{p.name}, 筹码:{p.chips}' for p in active_players)}")
             print(f"\n翻牌: {', '.join(str(card) for card in self.table.community_cards)}")
@@ -104,10 +123,18 @@ class GameController:
         active_players = [p for p in self.table.players if p.is_active and not p.folded]
         if len(active_players) <= 1:
             self.table.award_pot(active_players)
+            # 记录手牌结算
+            self._log_hand_result()
             return
 
         # 进行转牌
         self.table.move_to_next_stage()  # 进入转牌阶段
+        # 记录转牌事件
+        self.game_logger.log_community_cards(
+            self.table.hand_number,
+            "turn",
+            self.table.community_cards
+        )
         if verbose:
             print(f"在场玩家：{', '.join(f'{p.name}, 筹码:{p.chips}' for p in active_players)}")
             print(f"\n转牌: {', '.join(str(card) for card in self.table.community_cards)}")
@@ -117,10 +144,18 @@ class GameController:
         active_players = [p for p in self.table.players if p.is_active and not p.folded]
         if len(active_players) <= 1:
             self.table.award_pot(active_players)
+            # 记录手牌结算
+            self._log_hand_result()
             return
 
         # 进行河牌
         self.table.move_to_next_stage()  # 进入河牌阶段
+        # 记录河牌事件
+        self.game_logger.log_community_cards(
+            self.table.hand_number,
+            "river",
+            self.table.community_cards
+        )
         if verbose:
             print(f"在场玩家：{', '.join(f'{p.name}, 筹码:{p.chips}' for p in active_players)}")
             print(f"\n河牌: {', '.join(str(card) for card in self.table.community_cards)}")
@@ -128,6 +163,13 @@ class GameController:
 
         # 进行摊牌
         self.table.move_to_next_stage()  # 进入摊牌阶段
+
+        # 记录摊牌事件
+        self.game_logger.log_showdown(
+            self.table.hand_number,
+            self.table.community_cards,
+            self.table.players
+        )
 
         # 显示摊牌结果
         if verbose:
@@ -137,6 +179,28 @@ class GameController:
                 print(f"在场玩家：{', '.join(f'{p.name}, 筹码:{p.chips}' for p in active_players)}")
                 print(f"  {player.name}: {', '.join(str(card) for card in player.hand)}\n")
             print(f"公共牌: {', '.join(str(card) for card in self.table.community_cards)}")
+
+        # 记录手牌结算
+        self._log_hand_result()
+
+    def _log_hand_result(self):
+        """记录一手牌的结算结果"""
+        # 从 game_result_log 中获取赢家信息
+        game_result = self.table.game_result_log.get(self.table.hand_number)
+        if game_result:
+            # 获取所有赢家的 Player 对象
+            winner_names = [w.player_name for w in game_result.winners]
+            winners = [p for p in self.table.players if p.name in winner_names]
+
+            # 记录结算结果
+            self.game_logger.log_hand_result(
+                hand_number=self.table.hand_number,
+                pot=game_result.pot,
+                stage=game_result.stage.value,
+                community_cards=game_result.community_cards,
+                all_players=self.table.players,
+                winners=winners
+            )
 
     def run_betting_round(self, verbose: bool = True):
         """运行一轮下注"""
@@ -199,9 +263,11 @@ class GameController:
             print("至少需要2名玩家才能开始游戏")
             return
 
-        # 为玩家设置相同的初始筹码
+        # 为玩家设置相同的初始筹码，并注入game_logger
         for p in self.ai_players:
             p.player.chips = self.initial_chips
+            p.game_logger = self.game_logger  # 注入日志记录器
+
         start_time = time.time()
 
         if verbose:
@@ -250,6 +316,7 @@ class GameController:
 
             print(f"\n游戏用时: {time.time() - start_time:.2f} 秒")
             print(f"游戏日志已保存到: {self.get_log_filename()}")
+            print(f"增强日志已保存到: {self.save_enhanced_log()}")
 
     def get_log_filename(self) -> str:
         """获取日志文件名"""
@@ -258,6 +325,15 @@ class GameController:
     def save_game_log(self):
         """保存游戏日志"""
         self.table.save_game_log(self.get_log_filename())
+
+    def save_enhanced_log(self) -> str:
+        """保存增强的游戏日志"""
+        # 设置最终排名
+        self.game_logger.set_final_rankings(self.ai_players)
+        # 标记游戏结束
+        self.game_logger.finish_game()
+        # 保存日志
+        return self.game_logger.save()
 
     def replay_game(self, game_id: Optional[str] = None):
         """重放游戏"""

@@ -2,6 +2,7 @@
 # AI玩家接口和实现
 
 import random
+import time
 from typing import List, Dict, Any, Tuple, Optional
 from engine_info import Card, Action, GameStage, Player
 from openai import OpenAI
@@ -14,6 +15,34 @@ REFLECT_PROMPT_PATH = "prompt/reflect_prompt.txt"
 REFLECT_ALL_PROMPT_PATH = "prompt/reflect_all_prompt.txt"
 RED = '\033[31m'
 RESET = '\033[0m'
+
+
+def prepare_game_state_for_log(game_state) -> Dict[str, Any]:
+    """准备用于日志记录的游戏状态（避免循环引用）"""
+    return {
+        "hand": [str(card) for card in game_state.hand],
+        "community_cards": [str(card) for card in game_state.community_cards],
+        "pot": game_state.pot,
+        "current_bet": game_state.current_bet,
+        "min_raise": game_state.min_raise,
+        "stage": game_state.stage.value,
+        "position": game_state.position,
+        "dealer_position": game_state.dealer_position,
+        "small_blind": game_state.small_blind,
+        "big_blind": game_state.big_blind,
+        "hand_num": game_state.hand_num,
+        "players_info": [
+            {
+                "name": p.name,
+                "chips": p.chips,
+                "bet_in_round": p.bet_in_round,
+                "folded": p.folded,
+                "all_in": p.all_in,
+                "is_active": p.is_active
+            }
+            for p in game_state.players_info
+        ]
+    }
 
 
 class AIPlayer:
@@ -55,7 +84,7 @@ class AIPlayer:
 class LLMPlayer(AIPlayer):
     """由大语言模型驱动的AI玩家"""
 
-    def __init__(self, name: str, model_name: str, api_key: Optional[str] = None, base_url: Optional[str] = None):
+    def __init__(self, name: str, model_name: str, api_key: Optional[str] = None, base_url: Optional[str] = None, game_logger: Optional[Any] = None):
         super().__init__(Player(name=name))
         self.model_name = model_name
         self.api_key = api_key
@@ -63,26 +92,85 @@ class LLMPlayer(AIPlayer):
         self.client = None
         self.opinions = {}
         self.all_player_previous = '对他们还不了解'
+        self.game_logger = game_logger  # 新增：日志记录器
 
     def _call_llm_api(self, prompt: str) -> str:
         """调用大语言模型API获取响应"""
         raise NotImplementedError("子类必须实现此方法")
 
+    def _call_llm_api_with_metadata(self, prompt: str) -> Dict[str, str]:
+        """调用大语言模型API获取响应及元数据"""
+        # 默认实现，只返回内容
+        content = self._call_llm_api(prompt)
+        return {"content": content, "reasoning_content": ""}
+
     def make_decision(self, game_state: GameInfoState) -> GamePlayerAction:
         print(f'玩家 {self.name} 正在思考...')
         print(f"他的手牌是：{', '.join(str(card) for card in self.player.hand)}")
         print(f"他的筹码量：{self.player.chips}")
+
+        prompt = ""
+        raw_response = ""
+        reasoning_content = ""
+        error = ""
+        start_time = time.time()
+        game_state_dict = prepare_game_state_for_log(game_state)
+
         for i in range(3):
             try:
                 # 构建提示信息
                 prompt = self._build_prompt(game_state)
 
                 # 调用大语言模型获取决策
-                response = self._call_llm_api(prompt)
+                response_with_metadata = self._call_llm_api_with_metadata(prompt)
+                raw_response = response_with_metadata.get("content", "")
+                reasoning_content = response_with_metadata.get("reasoning_content", "")
 
-                return self._parse_response(response, game_state)
+                result = self._parse_response(raw_response, game_state)
+
+                # 记录决策过程到日志
+                if self.game_logger:
+                    self.game_logger.log_llm_decision(
+                        player_name=self.name,
+                        model_name=self.model_name,
+                        hand_number=game_state.hand_num,
+                        stage=game_state.stage,
+                        prompt=prompt,
+                        game_state=game_state_dict,
+                        raw_response=raw_response,
+                        parsed_action=result.action,
+                        action_amount=result.amount,
+                        play_reason=result.play_reason,
+                        behavior=result.behavior,
+                        reasoning_content=reasoning_content,
+                        response_time=time.time() - start_time,
+                        error=error
+                    )
+
+                return result
             except Exception as e:
+                error = str(e)
                 print(e)
+
+        # 如果所有重试都失败，记录失败的决策
+        if self.game_logger:
+            self.game_logger.log_llm_decision(
+                player_name=self.name,
+                model_name=self.model_name,
+                hand_number=game_state.hand_num,
+                stage=game_state.stage,
+                prompt=prompt if prompt else "",
+                game_state=game_state_dict,
+                raw_response=raw_response if raw_response else "",
+                parsed_action=Action.FOLD,
+                action_amount=0,
+                play_reason='大模型操作错误，直接弃牌',
+                behavior='无表情',
+                reasoning_content=reasoning_content,
+                response_time=time.time() - start_time,
+                error=error
+            )
+
         return GamePlayerAction(
             action=Action.FOLD,
             amount=0,
@@ -180,6 +268,8 @@ class LLMPlayer(AIPlayer):
 
         # 使用一次调用为所有玩家进行分析
         basePrompt = self._read_file(REFLECT_ALL_PROMPT_PATH)
+        prompt = ""
+        raw_response = ""
         try:
             prompt = basePrompt.format(
                 self_name=self.player.name,
@@ -188,32 +278,37 @@ class LLMPlayer(AIPlayer):
                 game_result=result_str,
                 previous_opinion=self.all_player_previous
             )
-            content = self._call_llm_api(prompt=prompt)
+            response_with_metadata = self._call_llm_api_with_metadata(prompt)
+            raw_response = response_with_metadata.get("content", "")
+            content = raw_response
             # 更新对其他玩家的印象
             self.all_player_previous = content.strip()
             print(f"{self.name} 更新了对其他玩家的印象: {content}")
+
+            # 记录反思过程到日志
+            if self.game_logger:
+                self.game_logger.log_llm_reflection(
+                    player_name=self.name,
+                    model_name=self.model_name,
+                    hand_number=game_state.hand_num,
+                    prompt=prompt,
+                    game_result=result_str,
+                    raw_response=raw_response,
+                    updated_opinions={"all_players": content}
+                )
         except Exception as e:
             print(f"反思自己时出错: {str(e)}")
-        # 使用多轮调用给每一位玩家进行分析
-        # basePrompt = self._read_file(REFLECT_PROMPT_PATH)
-        # for player in game_state.players_info:
-        #     if player.is_active and player.name != self.player.name:
-        #         try:
-        #             prompt = basePrompt.format(
-        #                 self_name=self.player.name,
-        #                 user_info=player_info,
-        #                 action_history=action_history,
-        #                 game_result=result_str,
-        #                 player=player.name,
-        #                 previous_opinion=self.opinions.get(player.name, "还不了解这个玩家")
-        #             )
-        #
-        #             content = self._call_llm_api(prompt=prompt)
-        #             # 更新对该玩家的印象
-        #             self.opinions[player.name] = content.strip()
-        #             print(f"{self.name} 更新了对 {player.name} 的印象: {content}")
-        #         except Exception as e:
-        #             print(f"反思玩家 {player.name} 时出错: {str(e)}")
+            # 记录反思错误到日志
+            if self.game_logger:
+                self.game_logger.log_llm_reflection(
+                    player_name=self.name,
+                    model_name=self.model_name,
+                    hand_number=game_state.hand_num,
+                    prompt=prompt if prompt else "",
+                    game_result=result_str,
+                    raw_response=raw_response if raw_response else "",
+                    updated_opinions={}
+                )
 
     def _read_file(self, filepath: str) -> str:
         """读取文件内容"""
@@ -287,6 +382,34 @@ class OpenAiLLMUser(LLMPlayer):
             print(f"{RED} LLM推理内容: {content} {RESET}")
             return content
 
+    def _call_llm_api_with_metadata(self, prompt: str) -> Dict[str, str]:
+        """调用OpenAI兼容接口，返回内容和推理内容"""
+        if self.client is None:
+            self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+
+        messages = [
+            {"role": "user", "content": prompt}
+        ]
+
+        response = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=messages
+        )
+
+        if response.choices:
+            message = response.choices[0].message
+            content = message.content if message.content else ""
+            reasoning_content = getattr(message, "reasoning_content", "")
+            if reasoning_content:
+                print(f"{RED} LLM推理内容: {reasoning_content} {RESET}")
+            print(f"{RED} LLM回复内容: {content} {RESET}")
+            return {
+                "content": content,
+                "reasoning_content": reasoning_content
+            }
+
+        return {"content": "", "reasoning_content": ""}
+
 
 class AnthropicLLMUser(LLMPlayer):
 
@@ -311,3 +434,29 @@ class AnthropicLLMUser(LLMPlayer):
             print(f"{RED} LLM推理内容: {content} {RESET}")
 
             return content
+
+    def _call_llm_api_with_metadata(self, prompt: str) -> Dict[str, str]:
+        """调用Anthropic接口，返回内容"""
+        if self.client is None:
+            self.client = Anthropic(api_key=self.api_key, base_url=self.base_url)
+
+        messages = [
+            {"role": "user", "content": prompt}
+        ]
+
+        response = self.client.messages.create(
+            max_tokens=1024,
+            model=self.model_name,
+            messages=messages
+        )
+
+        if response.content:
+            message = response.content[0]
+            content = message.text if message.text else ""
+            print(f"{RED} LLM回复内容: {content} {RESET}")
+            return {
+                "content": content,
+                "reasoning_content": ""  # Anthropic不提供单独的推理内容字段
+            }
+
+        return {"content": "", "reasoning_content": ""}
